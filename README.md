@@ -1,8 +1,24 @@
-# README
+# A Crawler for the KAD-part of the IPFS-network
+
+**Academic code, run and read at your own risk**
+
+This crawler is designed to enumerate all reachable nodes within the DHT/KAD-part of the IPFS network and return their neighborhood graph.
+For each node it saves
+	* The ID
+	* All known multiaddresses that were found in the DHT
+	* Whether it was reachable by the crawler or not, i.e., if a connection attempt was successful.
+
+This is achieved by sending multiple ```FindNode```-requests to each node in the network, targeted in such a way that each request extracts the contents of exactly one DHT bucket.
+
+The crawler is optimized for speed, to generate as accurate snapshots as possible.
 
 ## Compute the pre-images
 
-The crawler relies on a collection of pre-images. To compute them, simply execute the compute.go file in precomputed_hashes/
+The crawler relies on a collection of pre-images. To compute them, simply execute the command
+
+```go run cmd/hash-precomputation/main.go```.
+
+This will create an output file as ```precomputed_hashes/preimages.csv``` .
 
 ## Libp2p complains about keylengths
 
