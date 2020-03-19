@@ -26,12 +26,12 @@ const (
 	// The date format which is appended to our crawl files. But seriously Go, wtf is this??
 	filenameTimeFormat = "02-01-06--15:04:05"
 	// These options should be configurable through the command line one day
-	outPath = "crawls/"
+	outPath = "output_data_crawls/"
 	preImagePath = "precomputed_hashes/preimages.csv"
 	numPreImages = 16777216
-	writeToFileFlag = false
+	writeToFileFlag = true
 	cannaryFile = "configs/cannary.txt"
-	sanity = true
+	sanity = false
 )
 
 
