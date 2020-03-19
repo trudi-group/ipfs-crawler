@@ -25,7 +25,7 @@ const (
 	// Time format of log entries. Go, why you so ugly?
 	logTimeFormat = "15:04:05"
 	// Log level. Debug contains a lot but is very spammy
-	logLevel = log.InfoLevel
+	logLevel = log.ErrorLevel
 	// File which contains the bootstrap peers
 	bootstrapFile = "configs/bootstrappeers.txt"
 	// Buffersize of each queue that we are using for communication between threads
