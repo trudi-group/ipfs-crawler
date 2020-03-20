@@ -1,6 +1,8 @@
-# A Crawler for the KAD-part of the IPFS-network
+# A Crawler for the Kademlia-part of the IPFS-network
 
 **Academic code, run and read at your own risk**
+
+## In a Nutshell
 
 This crawler is designed to enumerate all reachable nodes within the DHT/KAD-part of the IPFS network and return their neighborhood graph.
 For each node it saves
@@ -30,6 +32,49 @@ The complete workflow is:
 	make build
 	./autocrawl [-l logdir] <crawl duration in days>
 
+## Output of a crawl
+
+Two files:
+* ```visitedPeers_<start_of_crawl_datetime>_<end_of_crawl_datetime>.csv```
+* ```peerGraph_<start_of_crawl_datetime>_<end_of_crawl_datetime>.csv```
+
+The dateformat is dd-mm-yy--H:M:S, where hours are in 24h format. For example, a crawl on the 20th of march 2020 that started at 11:58:17 and ended at 12:04:11:
+
+	visitedPeers_20-03-20--11:58:17_20-03-20--12:04:11.csv
+
+### Format of ```visitedPeers```
+
+Each line in ```visitedPeers``` corresponds to exactly one node on the network. The format is as follows:
+
+	Peer Multihash;[multiaddress_1, multiaddress_2, ..., multiaddress_n];reachable?;agentVersion
+
+Where ```reachable``` is true/false and indicates, whether the respective node could be reached by the crawler or not. Note that the crawler will try to connect to *all* multiaddresses that it found in the DHT for a given peer.
+Data example:
+
+	QmQEfD8366rDxNhaUti22p1scVRGNSYcL9YNUZcxktg7sX;[/ip4/49.235.108.57/tcp/4001 /ip6/::1/tcp/4001 /ip4/172.17.0.3/tcp/4001 /ip4/127.0.0.1/tcp/4001];true;go-ipfs/0.4.22/
+	
+### Format of ```peerGraph```
+
+```peerGraph``` is an edgelist, where each line in the file corresponds to one edge. A line has the form
+	
+	source multihash;target multihash;<target reachable?>
+	
+Two nodes are connected, if the crawler found the peer ```target multihash``` in the buckets of peer ```source multihash```.
+Example line:
+
+	QmY4N2q3kShvDnMy928SphJRXDEdAcJVDq5sjM5qLsnyHj;QmRXvASjWxqzPFDSvsqyzt9p6DyWNgZ8tVNqgNA4PTw1vk;false
+	
+which says that the peer with ID ```QmY4N...``` had an entry for peer ```QmRXvAS``` in its buckets and that the latter was not reachable by our crawler.
+Therefore, even though the two peers have an active connection (otherwise the latter peer would not be in the buckets of the former peer), the crawler could not connect to the second peer.
+Since many nodes reside behind NATs, this is not uncommon to see.
+
+## Bootstrap Peers
+
+By default, the crawler uses the bootstrappeer list provided in ```bootstrappeers.txt```. The file is assumed to contain one multiaddress in each line.
+Lines starting with a comment ```//``` will be ignored.
+To get the default bootstrap peers of an IPFS node, simply run ```./ipfs bootstrap list > bootstrappeers.txt```.
+
+
 ## Libp2p complains about keylengths
 
 Libp2p uses minimum keylenghts of [2048 bit](https://github.com/libp2p/go-libp2p-core/blob/master/crypto/rsa_common.go), whereas IPFS uses [512 bit](https://github.com/ipfs/infra/issues/378).
@@ -37,9 +82,3 @@ Therefore, the crawler can only connect to one IPFS bootstrap node and refuses a
 The environment variable that is used to change the behavior of libp2p is, for some reason, read before the main function of the crawler is executed. So in `start_crawl`, the crawler is started with:
 
 ```export LIBP2P_ALLOW_WEAK_RSA_KEYS="" && go run cmd/ipfs-crawler/main.go```
-
-## Bootstrap Peers
-
-By default, the crawler uses the bootstrappeer list provided in ```bootstrappeers.txt```. The file is assumed to contain one multiaddress in each line.
-Lines starting with a comment ```//``` will be ignored.
-To get the default bootstrap peers of an IPFS node, simply run ```./ipfs bootstrap list > bootstrappeers.txt```.
