@@ -1,6 +1,6 @@
 # A Crawler for the Kademlia-part of the IPFS-network
 
-**Academic code, run and read at your own risk**
+**For more details, see [our paper](https://arxiv.org/abs/2002.07747). Academic code, run and read at your own risk**
 
 ## In a Nutshell
 
