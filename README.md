@@ -41,6 +41,8 @@ The complete workflow is:
 If configured, the crawler will cache the nodes it has seen. The next crawl will then not only start at the boot nodes but also add all previously reachable nodes to the crawl queue. This can increase the crawl speed, and therefore the accuracy of the snapshots, significantly.
 Due to node churn, this setting is most reasonable when performing many consecutive crawls.
 
+This property is enabled by default and will store the nodes in a file called ```nodes.cache```.
+
 ### Sanity Check ("Canary Peers")
 
 The crawler enumerates the nodes in the network, but without ground truth it is hard to assess the quality and completeness of a crawl.
