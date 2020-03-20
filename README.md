@@ -14,6 +14,8 @@ For each node it saves
 This is achieved by sending multiple ```FindNode```-requests to each node in the network, targeted in such a way that each request extracts the contents of exactly one DHT bucket.
 
 The crawler is optimized for speed, to generate as accurate snapshots as possible.
+It starts from the (configurable) bootstrap nodes, polls their buckets and continues to connect to every peer it has not seen so far.
+
 
 ## Run one or multiple crawls
 
@@ -31,6 +33,19 @@ The complete workflow is:
 
 	make build
 	./autocrawl [-l logdir] <crawl duration in days>
+
+## Features
+
+### Node Caching
+
+If configured, the crawler will cache the nodes it has seen. The next crawl will then not only start at the boot nodes but also add all previously reachable nodes to the crawl queue. This can increase the crawl speed, and therefore the accuracy of the snapshots, significantly.
+Due to node churn, this setting is most reasonable when performing many consecutive crawls.
+
+### Sanity Check ("Canary Peers")
+
+The crawler enumerates the nodes in the network, but without ground truth it is hard to assess the quality and completeness of a crawl.
+Therefore, it might be desireable to check whether some known IPFS-nodes appear in the crawl.
+If configured, the crawler will check if it has seen the nodes listed in ```configs/cannary.txt```. These can be well-known nodes, such as the ipfs.io-gateway, or self-run nodes, specifically started for the purpose of sanity checking the results.
 
 ## Output of a crawl
 
