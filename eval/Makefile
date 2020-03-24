@@ -52,11 +52,17 @@ plot_data/protocol_stats.csv:
 tables/protocol_stats.tex: plot_data/protocol_stats.csv
 	Rscript plotting/output_protocol_stats.R
 
+### Degree Statistics Table (Tab. IV in the paper).
+degree_statistics_table: tables/degree_stats.tex
+
+tables/degree_stats.tex:
+	Rscript plotting/degree_table.R
+
 ##### META COMMANDS #####
 
-plots: number_of_nodes_plot
+plots: number_of_nodes_plot specific_degree_distribution
 
-tabs: session_length_table
+tabs: session_length_table protocol_statistics_table degree_statistics_table
 
 all: crawlinfo plots tabs
 
