@@ -50,7 +50,7 @@ To run the geo-IP lookup for every crawl and every node, simple run:
 	
 Note that this requires the Maxmind Geolite2 databases that we cannot provide due to licensing reasons. See [here](https://github.com/scriptkitty/ipfs-crawler/blob/master/eval/geoipDBs/README.md) for the details.
 
-The ```figures``` and ```tables``` directories will be populated with files when running the evaluation, the descriptions on the resulting files are in the respective directories.
+The ```figures``` and ```tables``` directories will be populated with files when running the evaluation, the descriptions on the resulting files are in the respective directories: [```figures```](https://github.com/scriptkitty/ipfs-crawler/blob/master/eval/figures/README.md), [```tables```](https://github.com/scriptkitty/ipfs-crawler/blob/master/eval/tables/README.md).
 
 ## Features
 
