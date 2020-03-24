@@ -18,6 +18,15 @@ plot_data/num_nodes.csv:
 figures/num_nodes.tex: plot_data/num_nodes.csv
 	Rscript plotting/num_nodes_plot.R
 
+### Specific degree distribution (Fig. 8 + Fig. 9 in the paper)
+
+specific_degree_distribution: figures/log_all_nodes_degree_distribution.tex
+
+## As a command line argument, the RScript takes the index of the crawl whose degree distribution should be plotted.
+## In this case we use the first (R starts enumerating at 1).
+figures/log_all_nodes_degree_distribution.tex:
+	Rscript plotting/plot_specific_degree_distribution.R 1
+
 ##### TABLES #####
 
 ### Session lengths (Tab. I in the paper). Session length = uptime
@@ -55,3 +64,7 @@ all: crawlinfo plots tabs
 clean:
 	rm figures/num_nodes.tex
 	rm figures/num_nodes.png
+	rm figures/log_online_nodes_degree_distribution.tex
+	rm figures/log_all_nodes_degree_distribution.tex
+	rm figures/log_all_nodes_degree_distribution.png
+	rm figures/log_online_nodes_degree_distribution.png
