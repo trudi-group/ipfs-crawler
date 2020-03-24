@@ -48,6 +48,32 @@ plot_data/session_lengths.csv:
 tables/session_lengths.tex: plot_data/session_lengths.csv crawlinfo
 	Rscript plotting/output_sessionLengths.R
 
+
+### GeoIP distribution (Tab. II in the paper). This is a little bit involved:
+## We use python and maxmind geo IP databases to resolve all the addresses. To have maximum flexibility on what statistics to compute,
+## we simply duplicate the visitedPeers.csv files of the crawl, augmented with the geoIP lookup.
+## The data added includes the country code, autonomous systems number and autonomous systems organization.
+## Furthermore, for some reason, the lookup in Maxmind DBs takes forever, so this computation is quite lenghty.
+
+geo_IP_distribution: maxmindDB geoIP_preprocessing plot_data/geoIP_per_crawl.csv
+
+maxmindDB: geoipDBs/GeoLite2-Country.mmdb geoipDBs/GeoLite2-ASN.mmdb
+
+geoipDBs/GeoLite2-Country.mmdb:
+	$(error Please download the maxmind geo IP databases at https://dev.maxmind.com/geoip/geoip2/downloadable/. We need the GeoLite2-Country.mmdb and GeoLite2-ASN.mmdb.)
+
+geoipDBs/GeoLite2-ASN.mmdb: geoipDBs/GeoLite2-Country.mmdb
+
+
+geoIP_preprocessing:
+	python geoIP_from_crawl.py
+
+plot_data/geoIP_per_crawl.csv:
+	Rscript geoIP.R
+
+tables/geoIP_statistics.tex:
+	Rscript plotting/geoIP_plot.R
+
 ### Protocol statistics (Tab. III in the paper).
 protocol_statistics_table: plot_data/protocol_stats.csv  tables/protocol_stats.tex
 
@@ -67,17 +93,23 @@ tables/degree_stats.tex:
 
 ##### META COMMANDS #####
 
-plots: number_of_nodes_plot specific_degree_distribution
+plots: number_of_nodes_plot specific_degree_distribution agent_version_distribution
 
-tabs: session_length_table protocol_statistics_table degree_statistics_table
+tabs: session_length_table protocol_statistics_table degree_statistics_table #geo_IP_distribution
 
 all: crawlinfo plots tabs
 
 ## Delete the figures and tables
 clean:
-	rm figures/num_nodes.tex
-	rm figures/num_nodes.png
-	rm figures/log_online_nodes_degree_distribution.tex
-	rm figures/log_all_nodes_degree_distribution.tex
-	rm figures/log_all_nodes_degree_distribution.png
-	rm figures/log_online_nodes_degree_distribution.png
+	rm -f figures/num_nodes.tex
+	rm -f figures/num_nodes.png
+	rm -f figures/log_online_nodes_degree_distribution.tex
+	rm -f figures/log_all_nodes_degree_distribution.tex
+	rm -f figures/log_all_nodes_degree_distribution.png
+	rm -f figures/log_online_nodes_degree_distribution.png
+	rm -f figures/agent_version_distribution.tex
+	rm -f figures/agent_version_distribution.png
+
+	rm -f tables/degree_stats.tex
+	rm -f tables/protocol_stats.tex
+	rm -f tables/session_lengths.tex
