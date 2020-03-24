@@ -18,12 +18,27 @@ plot_data/num_nodes.csv:
 figures/num_nodes.tex: plot_data/num_nodes.csv
 	Rscript plotting/num_nodes_plot.R
 
+##### TABLES #####
+
+### Session lengths (Tab. I in the paper). Session length = uptime
+
+session_length_table: plot_data/session_lengths.csv tables/session_lengths.tex
+
+## Preprocessing
+plot_data/session_lengths.csv: 
+	python sessionLengths.py
+
+## Actual creation of table. We depend on crawlinfo, since we load some data about the crawl from the .lua key-value-store
+tables/session_lengths.tex: plot_data/session_lengths.csv crawlinfo
+	Rscript plotting/output_sessionLengths.R
+
 ##### META COMMANDS #####
 
 plots: number_of_nodes_plot
 
+tabs: session_length_table
 
-all: crawlinfo plots
+all: crawlinfo plots tabs
 
 ## Delete the figures and tables
 clean:
