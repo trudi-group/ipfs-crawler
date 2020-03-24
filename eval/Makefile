@@ -27,6 +27,13 @@ specific_degree_distribution: figures/log_all_nodes_degree_distribution.tex
 figures/log_all_nodes_degree_distribution.tex:
 	Rscript plotting/plot_specific_degree_distribution.R 1
 
+### Agent version plot
+
+agent_version_distribution: figures/agent_version_distribution.tex
+
+figures/agent_version_distribution.tex:
+	Rscript plotting/agentVersion.R
+
 ##### TABLES #####
 
 ### Session lengths (Tab. I in the paper). Session length = uptime
