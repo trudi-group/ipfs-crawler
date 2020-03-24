@@ -32,6 +32,17 @@ plot_data/session_lengths.csv:
 tables/session_lengths.tex: plot_data/session_lengths.csv crawlinfo
 	Rscript plotting/output_sessionLengths.R
 
+### Protocol statistics (Tab. III in the paper).
+protocol_statistics_table: plot_data/protocol_stats.csv  tables/protocol_stats.tex
+
+## Preprocessing
+plot_data/protocol_stats.csv:
+	python extractProtocolStats.py
+
+## Creation of table
+tables/protocol_stats.tex: plot_data/protocol_stats.csv
+	Rscript plotting/output_protocol_stats.R
+
 ##### META COMMANDS #####
 
 plots: number_of_nodes_plot
