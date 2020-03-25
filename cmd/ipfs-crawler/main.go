@@ -25,7 +25,7 @@ const (
 	// Time format of log entries. Go, why you so ugly?
 	logTimeFormat = "15:04:05"
 	// Log level. Debug contains a lot but is very spammy
-	logLevel = log.ErrorLevel
+	logLevel = log.InfoLevel
 	// File which contains the bootstrap peers
 	bootstrapFile = "configs/bootstrappeers.txt"
 	// Buffersize of each queue that we are using for communication between threads
@@ -56,7 +56,7 @@ func main() {
 
 
 	// Let's go!
-	log.Info("IPFS Crawler.")
+	log.Info("Thank you for running our IPFS Crawler!")
 
 	// First, check whether the weak RSA keys environment variable is set
 	_, weakKeysAllowed := os.LookupEnv("LIBP2P_ALLOW_WEAK_RSA_KEYS")
@@ -84,8 +84,8 @@ func main() {
 	}
     if useCache {
         cachedNodes, err := crawlLib.RestoreNodeCache(cacheFile)
-        log.WithField("amount", len(cachedNodes)).Info("Adding cached peer to crawl queue.")
         if err == nil{
+        	log.WithField("amount", len(cachedNodes)).Info("Adding cached peer to crawl queue.")
             bootstrappeers = append(bootstrappeers, cachedNodes...)
         }
     }

@@ -30,7 +30,7 @@ const (
 	preImagePath = "precomputed_hashes/preimages.csv"
 	numPreImages = 16777216
 	writeToFileFlag = true
-	cannaryFile = "configs/cannary.txt"
+	canaryFile = "configs/canary.txt"
 	sanity = false
 )
 
@@ -114,10 +114,12 @@ func (cm *CrawlManager) Stop() {
 
 func (cm *CrawlManager) shutdownAndOutput() {
 	// Perform sanity checks on output
-	if sanity == true {
-		checkCannaries(cm.knows)
-        cm.saveOnlineNodes(cm.online, cm.crawled)
+	if sanity {
+		checkCanaries(cm.knows)
 	}
+	// Save the nodes that were reachable in our node cache, so that the next crawl is faster.
+	cm.saveOnlineNodes(cm.online, cm.crawled)
+	
 	// Signal stop to workers first
 	for _, w := range cm.workers {
 		w.Stop()
@@ -133,12 +135,13 @@ func (cm *CrawlManager) Run() {
 		go w.Run()
 	}
 
+	log.Info("Starting crawl...")
 	// We stop the crawl whenever the queues are empty and nothing has happened for 2 minutes
 	for {
 		log.WithFields(log.Fields{
 			"inputQueueLength": len(cm.InputQueue),
 			"workQueueLength": len(cm.workQueue),
-		}).Info("CrawlManager: New loop run.")
+		}).Debug("CrawlManager: New loop run.")
 		idleTimer := time.NewTimer(1*time.Minute)
 		select {
 			case node := <-cm.InputQueue:
@@ -173,11 +176,11 @@ func (cm *CrawlManager) Run() {
 				cm.workQueue<-node
 
 				// Just out of curiousity, if the Queue is starting to overflow
-				if len(cm.workQueue) > 40000 {
-					log.WithField("workQueueLength", len(cm.workQueue)).Warning("WorkQueue getting long.")
+				if len(cm.workQueue) > int(0.95*float32(cm.GetQueueSize())) {
+					log.WithField("workQueueLength", len(cm.workQueue)).Debug("WorkQueue getting long.")
 				}
-        if len(cm.InputQueue) > 40000 {
-					log.WithField("inputQueueLength", len(cm.InputQueue)).Warning("inputQueue getting long.")
+        if len(cm.InputQueue) > int(0.95*float32(cm.GetQueueSize())) {
+					log.WithField("inputQueueLength", len(cm.InputQueue)).Debug("inputQueue getting long.")
 				}
 			case node := <-cm.onlineQueue:
 				// A peer that we saw was online, store that
@@ -194,7 +197,7 @@ func (cm *CrawlManager) Run() {
 
 			case <-idleTimer.C:
 				// Stop the crawl
-				log.Info("Idle timer fired, stopping the crawl.")
+				log.Debug("Idle timer fired, stopping the crawl.")
 				// If the queues are not empty, something went wrong
 				if len(cm.InputQueue) != 0 || len(cm.workQueue) != 0 {
 					log.WithFields(log.Fields{
@@ -208,7 +211,7 @@ func (cm *CrawlManager) Run() {
 				cm.errorMap[fmt.Sprintf("%T", err)] += 1
 
 			case <-cm.quitMsg:
-				log.Debug("CrawlManager quitting....")
+				log.Info("CrawlManager quitting....")
 				cm.shutdownAndOutput()
 				cm.Done<-true
 				return
@@ -224,7 +227,7 @@ func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
 	if toFile {
 		vf, err := os.OpenFile(outPath + cm.generateFilename("visitedPeers", ".csv", start, end), os.O_CREATE | os.O_RDWR, 0666)
 		if os.IsNotExist(err) {
-			os.Mkdir(outPath, 0666)
+			os.Mkdir(outPath, 0777)
 		} else if err != nil {
 			panic(err)
 		}
@@ -266,9 +269,9 @@ func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
 		// 	}
 		// }
 	}
-	fmt.Println("######## ErrorMap ###########")
-	fmt.Println(cm.errorMap)
-	fmt.Println("#############################")
+	// fmt.Println("######## ErrorMap ###########")
+	// fmt.Println(cm.errorMap)
+	// fmt.Println("#############################")
 }
 
 func (cm *CrawlManager) generateFilename(prefix, suffix, start, end string) string {
@@ -382,35 +385,35 @@ func FindNewMA(old []ma.Multiaddr, new []ma.Multiaddr) []ma.Multiaddr {
 	}
 	return newAddrs
 }
-// checkCannaries is a sanity check which tests whether certain nodes have been seen during the crawling.
-func checkCannaries (onlineMap map[peer.ID][]peer.ID)  {
-	file, err := os.Open(cannaryFile)
+// checkCanaries is a sanity check which tests whether certain nodes have been seen during the crawling.
+func checkCanaries (onlineMap map[peer.ID][]peer.ID)  {
+	file, err := os.Open(canaryFile)
 	if err != nil {
-		log.WithField("err", err).Error("cannot open cannary file")
+		log.WithField("err", err).Error("cannot open canary file")
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		cannary_text := scanner.Text()
+		canary_text := scanner.Text()
 		// Ignore lines that are commented out
-		if strings.HasPrefix(cannary_text, "//") {
+		if strings.HasPrefix(canary_text, "//") {
 			continue
 		}
-		fmt.Println(cannary_text)
-		cannary, err := utils.ParsePeerString(cannary_text)
+		fmt.Println(canary_text)
+		canary, err := utils.ParsePeerString(canary_text)
 		if err != nil {
-			log.WithField("err", err).Error("Error parsing cannary.")
+			log.WithField("err", err).Error("Error parsing canary.")
 			continue
 		}
-		online, exists := onlineMap[cannary.ID]
+		online, exists := onlineMap[canary.ID]
 		if !exists {
 			log.WithFields(log.Fields{
-			"cannary": cannary,
-			}).Error("Sanity: Cannary not found.")
+			"canary": canary,
+			}).Error("Sanity: Canary not found.")
 		} else if online == nil {
 			log.WithFields(log.Fields{
-				"cannary": cannary,
-				}).Error("Sanity: Cannary found.")
+				"canary": canary,
+				}).Error("Sanity: Canary found.")
 		}
 	}
 }
@@ -439,7 +442,8 @@ func (cm *CrawlManager) saveOnlineNodes(online map[peer.ID]bool, crawled map[pee
 func RestoreNodeCache(path string) ([]*peer.AddrInfo, error)  {
     nodedata, err := ioutil.ReadFile(path)
     if err != nil {
-        log.WithField("err", err).Error("Error reading from cacheFile.")
+        log.WithField("err", err).Warning("Node caching is enabled, but we couldn't read from the cache file. " +
+        	"Maybe this is the first run? Continuing without node cache this time.")
         return nil, err
     }
     var result []peer.AddrInfo

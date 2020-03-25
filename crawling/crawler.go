@@ -129,9 +129,9 @@ func (w *Worker) Run() {
 				w.CrawlPeer(toCrawl)
                 log.WithFields(log.Fields{
                     "Requests": len(w.rateLimit),
-                }).Info("Number of simultaneous request")
+                }).Debug("Number of simultaneous request")
 			case <-w.quitMsg:
-				log.WithField("workerID", w.id).Info("Worker shutting down.")
+				log.WithField("workerID", w.id).Debug("Worker shutting down.")
 				return
 		}
 	}
