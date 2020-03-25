@@ -70,7 +70,7 @@ func main() {
 	}
 
 	// Second, check if the pre-image file exists
-	cm := crawlLib.NewCrawlManager(queueSize, cacheFile)
+	cm := crawlLib.NewCrawlManager(queueSize, cacheFile, useCache)
 	log.WithField("numberOfWorkers", numWorkers).Info("Creating workers...")
 	for i := 0; i < numWorkers; i++ {
 		cm.CreateAndAddWorker()

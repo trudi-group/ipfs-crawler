@@ -25,7 +25,10 @@ To run a single crawl simply do:
 	make build
 	./start_crawl
 
-Note that the preimages only have to be computed *once*.
+Note that the preimages only have to be computed *once*, it'll take some minutes, to compute them, though.
+```start_crawl``` will be created at build time.
+
+One crawl will take 5-10 minutes, depending on your machine.
 
 For multiple crawls, use the `autocrawl.sh` script instead of `start_crawl` in the last line. It takes a duration in days and an optional directory to put logs into.
 Note that there will be a lot of output on your disk, one week of crawling (without logs) can lead to 30-50GB of data!
@@ -36,7 +39,7 @@ The complete workflow is:
 
 ## Compute statistics on the obtained crawl data
 
-After running a few crawls, the ```output_data_crawls``` directory should have some data in it.
+After running a few crawls, the ```output_data_crawls``` directory should have some data in it. The directory will be created if it does not exist.
 To run the evaluation and generate the same plots/tables as in the paper (and more!) simply run:
 
 	cd eval

@@ -38,6 +38,7 @@ const (
 // CrawlManager assigns nodes to be crawled to the workers and filters duplicates from the responses.
 type CrawlManager struct {
 	cacheFile string
+	useCache bool
 	queueSize int
 	InputQueue chan peer.AddrInfo
 	onlineQueue chan peer.AddrInfo
@@ -62,10 +63,11 @@ type PreImageHandler struct {
 }
 // NewCrawlManager creates a new crawlManager and loads the precalculated hashes.
 // :param queueSize: size of the various message channels
-func NewCrawlManager(queueSize int, cacheFile string) *CrawlManager {
+func NewCrawlManager(queueSize int, cacheFile string, useCache bool) *CrawlManager {
 	cm := &CrawlManager{
 		queueSize: queueSize,
 		cacheFile: cacheFile,
+		useCache: useCache,
 		InputQueue: make(chan peer.AddrInfo, queueSize),
 		workQueue: make(chan peer.AddrInfo, queueSize),
 		onlineQueue: make(chan peer.AddrInfo, queueSize),
@@ -118,8 +120,9 @@ func (cm *CrawlManager) shutdownAndOutput() {
 		checkCanaries(cm.knows)
 	}
 	// Save the nodes that were reachable in our node cache, so that the next crawl is faster.
-	cm.saveOnlineNodes(cm.online, cm.crawled)
-	
+	if cm.useCache {
+		cm.saveOnlineNodes(cm.online, cm.crawled)
+	}
 	// Signal stop to workers first
 	for _, w := range cm.workers {
 		w.Stop()
