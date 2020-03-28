@@ -55,7 +55,7 @@ tables/session_lengths.tex: plot_data/session_lengths.csv crawlinfo
 ## The data added includes the country code, autonomous systems number and autonomous systems organization.
 ## Furthermore, for some reason, the lookup in Maxmind DBs takes forever, so this computation is quite lenghty.
 
-geo_IP_distribution: maxmindDB geoIP_preprocessing plot_data/geoIP_per_crawl.csv
+geo_IP_distribution: maxmindDB geoIP_preprocessing plot_data/geoIP_per_crawl.csv tables/geoIP_statistics.tex
 
 maxmindDB: geoipDBs/GeoLite2-Country.mmdb geoipDBs/GeoLite2-ASN.mmdb
 
