@@ -91,13 +91,22 @@ degree_statistics_table: tables/degree_stats.tex
 tables/degree_stats.tex:
 	Rscript plotting/degree_table.R
 
+##### REPORT #####
+
+report: report.pdf
+
+report.pdf:
+	latexmk -interaction=nonstopmode -f
+	## Clean up, this will leave the .pdf, since we specified that in the latexmkrc
+	latexmk -c
+
 ##### META COMMANDS #####
 
 plots: number_of_nodes_plot specific_degree_distribution agent_version_distribution
 
-tabs: session_length_table protocol_statistics_table degree_statistics_table #geo_IP_distribution
+tabs: session_length_table protocol_statistics_table degree_statistics_table geo_IP_distribution
 
-all: crawlinfo plots tabs
+all: crawlinfo plots tabs report
 
 ## Delete the figures and tables
 clean:
@@ -113,3 +122,5 @@ clean:
 	rm -f tables/degree_stats.tex
 	rm -f tables/protocol_stats.tex
 	rm -f tables/session_lengths.tex
+	rm -f report.pdf
+	latexmk -c

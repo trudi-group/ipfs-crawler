@@ -1,0 +1,42 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{lua-utils}[Utility macros to work with numbers stored in Lua variables]
+
+\RequirePackage{siunitx}
+\RequirePackage{luacode}
+\RequirePackage{xspace}
+
+\directlua{dofile("lua-utils.lua")}
+
+\newcommand{\lassert}[1]{%
+  \directlua{assert(#1, "a lua assertion failed: " .. "#1")}%
+}
+
+% NEW syntax:
+
+\newcommand{\format}[4][]{%
+  \directlua{ldiff(#3, #4, "#2", "\luatexluaescapestring{#1}")}%
+}
+
+\newcommand{\lvar}[2][raw]{%
+  \directlua{lvar(#2, "#1")}%
+}
+
+% get plain stored value of a lua variable
+\newcommand{\lraw}[1]{%
+  \directlua{tex.sprint(#1)}%
+}
+
+% get lua variable as percent number
+\newcommand{\lperc}[1]{%
+  \lvar[percent]{#1}%
+}
+
+% get lua variable as SI formated number
+\newcommand{\lnum}[1]{%
+  \lvar[num]{#1}%
+}
+
+% format lua number variable with two digits precision
+\newcommand{\lnumXX}[1]{%
+  \num[round-precision=2]{\lraw{#1}}\xspace
+}
