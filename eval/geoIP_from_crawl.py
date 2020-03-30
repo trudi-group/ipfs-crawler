@@ -5,7 +5,6 @@ import sys
 import geoip2.database
 import ipaddress
 import tempfile
-import _pickle as pickle
 
 from maxminddb import (MODE_AUTO, MODE_MMAP, MODE_MMAP_EXT, MODE_FILE,
                        MODE_MEMORY, MODE_FD)

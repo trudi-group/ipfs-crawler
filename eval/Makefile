@@ -97,7 +97,7 @@ report: report.pdf
 
 report.pdf:
 	latexmk -interaction=nonstopmode -f
-	## Clean up, this will leave the .pdf, since we specified that in the latexmkrc
+	## Clean up the build files, this will leave the .pdf, since we specified that in the latexmkrc
 	latexmk -c
 
 ##### META COMMANDS #####
