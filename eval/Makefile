@@ -42,7 +42,7 @@ session_length_table: plot_data/session_lengths.csv tables/session_lengths.tex
 
 ## Preprocessing
 plot_data/session_lengths.csv: 
-	python sessionLengths.py
+	python3 sessionLengths.py
 
 ## Actual creation of table. We depend on crawlinfo, since we load some data about the crawl from the .lua key-value-store
 tables/session_lengths.tex: plot_data/session_lengths.csv crawlinfo
@@ -66,7 +66,7 @@ geoipDBs/GeoLite2-ASN.mmdb: geoipDBs/GeoLite2-Country.mmdb
 
 
 geoIP_preprocessing:
-	python geoIP_from_crawl.py
+	python3 geoIP_from_crawl.py
 
 plot_data/geoIP_per_crawl.csv:
 	Rscript geoIP.R
@@ -79,7 +79,7 @@ protocol_statistics_table: plot_data/protocol_stats.csv  tables/protocol_stats.t
 
 ## Preprocessing
 plot_data/protocol_stats.csv:
-	python extractProtocolStats.py
+	python3 extractProtocolStats.py
 
 ## Creation of table
 tables/protocol_stats.tex: plot_data/protocol_stats.csv
