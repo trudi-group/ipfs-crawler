@@ -53,8 +53,8 @@ if __name__ == "__main__":
 	onlyOnlineNodes = False
 	geoIPPathCountry = "geoipDBs/GeoLite2-Country.mmdb"
 	geoIPPathAS = "geoipDBs/GeoLite2-ASN.mmdb"
-	geoIPDB = geoip2.database.Reader(geoIPPathCountry, mode=MODE_MMAP_EXT)
-	ASDB = geoip2.database.Reader(geoIPPathAS, mode=MODE_MMAP_EXT)
+	geoIPDB = geoip2.database.Reader(geoIPPathCountry)#, mode=MODE_MMAP_EXT)
+	ASDB = geoip2.database.Reader(geoIPPathAS)#, mode=MODE_MMAP_EXT)
 
 	i = 0
 	for crawlFile in peerFiles:
