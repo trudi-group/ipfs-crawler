@@ -89,10 +89,13 @@ tables/protocol_stats.tex: plot_data/protocol_stats.csv
 	Rscript plotting/output_protocol_stats.R
 
 ### Degree Statistics Table (Tab. IV in the paper).
-degree_statistics_table: tables/degree_stats.tex
+degree_statistics_table: plot_data/degree_stats.csv tables/degree_stats.tex
 
-tables/degree_stats.tex:
-	Rscript plotting/degree_table.R
+plot_data/degree_stats.csv:
+	Rscript degree_stats.R
+
+tables/degree_stats.tex: plot_data/degree_stats.csv
+	Rscript plotting/output_degree_stats.R
 
 ##### REPORT #####
 
@@ -123,5 +126,8 @@ clean:
 	rm -f tables/degree_stats.tex
 	rm -f tables/protocol_stats.tex
 	rm -f tables/session_lengths.tex
+	rm -f tables/all_countries_geoIP_statistics.tex
+	rm -f tables/geoIP_statistics.tex
+	rm -f tables/full_agent_version_tab.tex
 	rm -f report.pdf
 	latexmk -c

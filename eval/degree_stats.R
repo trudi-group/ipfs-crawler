@@ -6,16 +6,15 @@ source("includes.R")
 
 ############ CONSTANTS #################
 
-tabOutName = "degree_stats.tex"
-tabLabel = "tab:degreeStats"
-tabCaption = c("Average of the degree statistics of all \\lraw{numCrawls} crawls.")
+outDataFile = "plot_data/degree_stats.csv"
 
-crawls = list.files(path=crawlDir, pattern=peerGraphPattern)
-########### DEGREE-TABLE ##############
+########### DEGREE-TABLE DATA ##############
 
 # Load each graph seperately (to avoid crowding the memory) and compute the
 # desired metrics about the degree.
 # Each call returns a line in the data.table, bind them together with rbindlist
+
+crawls = list.files(path=crawlDir, pattern=peerGraphPattern)
 
 degreeStatsRaw = rbindlist(pblapply(crawls, function(filename) {
   g = loadGraph(FullPath(filename), online=T)
@@ -43,23 +42,4 @@ degreeStats = degreeStatsRaw[, lapply(.SD, mean), .SDcols=-c("fname"), by=c("mod
 # Round to two digits
 degreeStats = degreeStats[, round(.SD, digits=2), by=c("mode")]
 
-### Write out the table (maybe should've used xtable...) ###
-# 
-# createDegreeTable = function(path, d) {
-#   fileConn=path
-#   cat(c("\\begin{tabular}{| c | c | c | c | c |}\n", "\\hline\n", " & Min. & Mean & Median & Max.\\\\\n", "\\hline\n"), file=fileConn)
-#   
-#   for (i in 1:nrow(d)) {
-#     cat( c( paste( paste(d[i]$mode, "degree", sep="-"), d[i]$min, d[i]$mean,
-#                    d[i]$median, d[i]$max, sep=" & "), "\\\\\n", "\\hline\n"), append=T, file=fileConn)
-#   }
-#   cat(c("\\end{tabular}\n"), append=T, file=fileConn)
-# }
-
-# createDegreeTable(paste(outTabPath, "degree_stats.tex", sep=""), degreeStats)
-print(xtable(degreeStats, align = c("|c|c|c|c|c|c|"),
-      label=tabLabel,
-      caption=tabCaption),
-      include.rownames=F,
-      hline.after=c(seq(-1, nrow(degreeStats), 1)),
-      file=paste(outTabPath, tabOutName, sep=""))
+write.table(degreeStats, file=outDataFile, sep=";", row.names=F)
