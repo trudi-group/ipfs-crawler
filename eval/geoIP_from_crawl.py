@@ -67,7 +67,7 @@ if __name__ == "__main__":
 		print(crawlFile)
 		print("Progress: " + str(i*100/len(peerFiles)) + "%")
 		totalCountryCount = 0
-		tmpf = tempfile.NamedTemporaryFile(mode="r+")
+		tmpf = tempfile.NamedTemporaryFile(mode="r+", encoding="utf-8")
 		tmpf.write("nodeid;IP;country;ASNO;ASName;online;agentVersion\n")
 		with open(crawlDir+crawlFile, "r") as f:
 			lines = [l for l in f]
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 					tmpf.write(nodeid + ";" + addrs + ";" + nodeOnline + ";" + agentVersion)
 
 		tmpf.seek(0)
-		with open(outputDir+crawlFile, "w") as f:
+		with open(outputDir+crawlFile, "w", encoding="utf-8") as f:
 			for l in tmpf:
 				f.write(l)
 		tmpf.close()
