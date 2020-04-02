@@ -4,6 +4,7 @@ source("includes.R")
 
 inputDataFile = "plot_data/geoIP_per_crawl.csv"
 tabPath = "./tables/geoIP_statistics.tex"
+completeTabPath = "./tables/all_countries_geoIP_statistics.tex"
 
 countryCutOff = 10
 ## Numbers <= 12 are written out
@@ -61,14 +62,22 @@ ReachablePlotDT = mcountsReachable[1:countryCutOff]
 
 
 # Screw xtable, it's too much of a hassle to get to work properly
-createTopNTable = function(path, topNdataAll, topNDataReachable) {
+createTopNTable = function(path, topNdataAll, topNDataReachable, longtable=F) {
   setnames(topNdataAll, c("country", "type", "AvgCount", "CILower", "CIUpper"))
   setnames(topNDataReachable, c("country", "type", "AvgCount", "CILower", "CIUpper"))
   fileConn=path
-  cat(c("\\begin{tabular}{| c | c | c || c | c | c |}\n",
-        "\\hline\n",
-        "\\multicolumn{3}{| c ||}{All} & \\multicolumn{3}{| c |}{Reachable}\\\\\n",
-        "\\hline\n", "Country & Count & Conf. Int. & Country & Count & Conf. Int.\\\\\n", "\\hline\n"), file=fileConn)
+  if (longtable) {
+    cat(c("\\begin{longtable}{| c | c | c || c | c | c |}\n",
+          "\\hline\n",
+          "\\multicolumn{3}{| c ||}{All} & \\multicolumn{3}{| c |}{Reachable}\\\\\n",
+          "\\hline\n", "Country & Count & Conf. Int. & Country & Count & Conf. Int.\\\\\n", "\\hline\n"), file=fileConn)
+  } else {
+    cat(c("\\begin{tabular}{| c | c | c || c | c | c |}\n",
+          "\\hline\n",
+          "\\multicolumn{3}{| c ||}{All} & \\multicolumn{3}{| c |}{Reachable}\\\\\n",
+          "\\hline\n", "Country & Count & Conf. Int. & Country & Count & Conf. Int.\\\\\n", "\\hline\n"), file=fileConn)
+  }
+  
   for(i in seq(1, nrow(topNdataAll), by=1)) {
     cat(c(paste(
                 topNdataAll[i]$country,
@@ -81,7 +90,14 @@ createTopNTable = function(path, topNdataAll, topNDataReachable) {
     # writeLines(c(paste(topNdata[i]$country, topNdata[i]$value, sep=" & "), "\\\\"), fileConn)
   }
   # cat(c("\\hhline{|=|=|}\n", paste("Sum", round(sum(topNdata$value), digits=2), sep=" & "), "\\\\\n"), append=T, file=fileConn)
-  cat(c("\\end{tabular}\n"), append=T, file=fileConn)
+  if (longtable) {
+    cat(c("\\end{longtable}\n"), append=T, file=fileConn)
+  } else {
+    cat(c("\\end{tabular}\n"), append=T, file=fileConn)
+  }
 }
 
 createTopNTable(tabPath, allPlotDT, ReachablePlotDT)
+
+## And the complete table for the appendix
+createTopNTable(completeTabPath, mcountsAll[type == "all"], mcountsReachable, longtable=T)

@@ -1,22 +1,20 @@
 source("includes.R")
 
 ##### CONSTANTS #####
+
 clientCutOff = 10
+inDataFile = "plot_data/agent_versions.csv"
+tabOutName = "full_agent_version_tab.tex"
+tabLabel = "tab:full_agent_version_tab"
+tabCaption = "The full list of agent versions and how often their were seen on average per crawl."
 
-# Get the list of crawl files
-crawls = list.files(path=crawlDir, pattern=visitedPattern)
+##### PROCESSING & PLOTTING #####
 
-## Load the data, set the appropriate name for the version column and merge the data.table by version
-allDTs = rbindlist(pblapply(crawls, function(filename) {
-  tmpDT = LoadDT(FullPath(filename), header=F)
-  setnames(tmpDT, 4, "version")
-  return(tmpDT[version != "", .(count= .N), .(version)])
-}))
-
-agentCounts = allDTs[, .(avgcount = mean(count)), by="version"]
+## Load the data
+agentCounts = LoadDT(inDataFile, header=T)
 
 ## To ease presentation, we only focus on the top clientCutOff versions
-truncatedDT = agentCounts[order(-avgcount)][1:clientCutOff]
+truncatedDT = agentCounts[1:clientCutOff]
 
 ## The top clientCutOff-versions make for this many of all seen clients:
 totalNumberOfVersions = sum(agentCounts$avgcount)
@@ -35,7 +33,11 @@ q = ggplot(truncatedDT, aes(x="", y=avgcount, fill=version)) +
   theme_void()
 
 ## Output to .tex but also to .png
-tikz(file=paste(outPlotPath, "agent_version_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
+# tikz(file=paste(outPlotPath, "agent_version_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
+# q
+# dev.off()
+
+pdf(file=paste(outPlotPath, "agent_version_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
 q
 dev.off()
 
@@ -43,3 +45,14 @@ png(filename=paste(outPlotPath, "agent_version_distribution.png", sep=""), heigh
 q
 dev.off()
 
+## Output a complete table of all agent versions
+
+print(xtable(agentCounts, align = c("|c|l|c|"),
+             label=tabLabel,
+             caption=tabCaption),
+      tabular.environment="longtable",
+      floating=F,
+      include.rownames=F,
+      hline.after=c(seq(-1, nrow(agentCounts), 1)),
+      file=paste(outTabPath, tabOutName, sep="")
+)

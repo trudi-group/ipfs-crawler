@@ -29,7 +29,11 @@ q = ggplot(meltedDT, aes(x=ts, y=value, color=variable)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
 ## Output to .tex but also to .png
-tikz(file=paste(outPlotPath, "num_nodes.tex", sep=""), width=plotWidth, height=plotHeight)
+# tikz(file=paste(outPlotPath, "num_nodes.tex", sep=""), width=plotWidth, height=plotHeight)
+# q
+# dev.off()
+
+pdf(file=paste(outPlotPath, "num_nodes.pdf", sep=""), width=plotWidth, height=plotHeight)
 q
 dev.off()
 

@@ -6,6 +6,10 @@ source("includes.R")
 
 ############ CONSTANTS #################
 
+tabOutName = "degree_stats.tex"
+tabLabel = "tab:degreeStats"
+tabCaption = c("Average of the degree statistics of all \\lraw{numCrawls} crawls.")
+
 crawls = list.files(path=crawlDir, pattern=peerGraphPattern)
 ########### DEGREE-TABLE ##############
 
@@ -40,16 +44,22 @@ degreeStats = degreeStatsRaw[, lapply(.SD, mean), .SDcols=-c("fname"), by=c("mod
 degreeStats = degreeStats[, round(.SD, digits=2), by=c("mode")]
 
 ### Write out the table (maybe should've used xtable...) ###
+# 
+# createDegreeTable = function(path, d) {
+#   fileConn=path
+#   cat(c("\\begin{tabular}{| c | c | c | c | c |}\n", "\\hline\n", " & Min. & Mean & Median & Max.\\\\\n", "\\hline\n"), file=fileConn)
+#   
+#   for (i in 1:nrow(d)) {
+#     cat( c( paste( paste(d[i]$mode, "degree", sep="-"), d[i]$min, d[i]$mean,
+#                    d[i]$median, d[i]$max, sep=" & "), "\\\\\n", "\\hline\n"), append=T, file=fileConn)
+#   }
+#   cat(c("\\end{tabular}\n"), append=T, file=fileConn)
+# }
 
-createDegreeTable = function(path, d) {
-  fileConn=path
-  cat(c("\\begin{tabular}{| c | c | c | c | c |}\n", "\\hline\n", " & Min. & Mean & Median & Max.\\\\\n", "\\hline\n"), file=fileConn)
-  
-  for (i in 1:nrow(d)) {
-    cat( c( paste( paste(d[i]$mode, "degree", sep="-"), d[i]$min, d[i]$mean,
-                   d[i]$median, d[i]$max, sep=" & "), "\\\\\n", "\\hline\n"), append=T, file=fileConn)
-  }
-  cat(c("\\end{tabular}\n"), append=T, file=fileConn)
-}
-
-createDegreeTable(paste(outTabPath, "degree_stats.tex", sep=""), degreeStats)
+# createDegreeTable(paste(outTabPath, "degree_stats.tex", sep=""), degreeStats)
+print(xtable(degreeStats, align = c("|c|c|c|c|c|c|"),
+      label=tabLabel,
+      caption=tabCaption),
+      include.rownames=F,
+      hline.after=c(seq(-1, nrow(degreeStats), 1)),
+      file=paste(outTabPath, tabOutName, sep=""))

@@ -92,19 +92,27 @@ if (onlyIn) {
 }
 
 
-tikz(file=paste(outPlotPath, "log_all_nodes_degree_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
-qAll
-dev.off()
-
-tikz(file=paste(outPlotPath, "log_online_nodes_degree_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
-qOnline
-dev.off()
+# tikz(file=paste(outPlotPath, "log_all_nodes_degree_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
+# qAll
+# dev.off()
+# 
+# tikz(file=paste(outPlotPath, "log_online_nodes_degree_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
+# qOnline
+# dev.off()
 
 png(filename=paste(outPlotPath, "log_all_nodes_degree_distribution.png", sep=""), height = bitmapHeight, width=bitmapWidth)
 qAll
 dev.off()
 
 png(filename=paste(outPlotPath, "log_online_nodes_degree_distribution.png", sep=""), height = bitmapHeight, width=bitmapWidth)
+qOnline
+dev.off()
+
+pdf(file=paste(outPlotPath, "log_all_nodes_degree_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
+qAll
+dev.off()
+
+pdf(file=paste(outPlotPath, "log_online_nodes_degree_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
 qOnline
 dev.off()
 

@@ -8,31 +8,34 @@ crawlinfo:
 
 ### Number of nodes plot (Fig. 7 in the Paper)
 
-number_of_nodes_plot: plot_data/num_nodes.csv figures/num_nodes.tex
+number_of_nodes_plot: plot_data/num_nodes.csv figures/num_nodes.png
 ## First, pre-process the data
 plot_data/num_nodes.csv:
 	Rscript num_nodes.R
 
 ## Actual plotting
 
-figures/num_nodes.tex: plot_data/num_nodes.csv
+figures/num_nodes.png: plot_data/num_nodes.csv
 	Rscript plotting/num_nodes_plot.R
 
 ### Specific degree distribution (Fig. 8 + Fig. 9 in the paper)
 
-specific_degree_distribution: figures/log_all_nodes_degree_distribution.tex
+specific_degree_distribution: figures/log_all_nodes_degree_distribution.png
 
 ## As a command line argument, the RScript takes the index of the crawl whose degree distribution should be plotted.
 ## In this case we use the first (R starts enumerating at 1).
-figures/log_all_nodes_degree_distribution.tex:
+figures/log_all_nodes_degree_distribution.png:
 	Rscript plotting/plot_specific_degree_distribution.R 1
 
 ### Agent version plot
 
-agent_version_distribution: figures/agent_version_distribution.tex
+agent_version_distribution: plot_data/agent_versions.csv figures/agent_version_distribution.png
 
-figures/agent_version_distribution.tex:
-	Rscript plotting/agentVersion.R
+plot_data/agent_versions.csv:
+	Rscript agentVersion.R
+
+figures/agent_version_distribution.png: plot_data/agent_versions.csv
+	Rscript plotting/agent_version_plot.R
 
 ##### TABLES #####
 
