@@ -1,0 +1,9 @@
+bootrapfile: configs/bootstrappeers.txt
+bootstrapfile: configs/bootstrappeers.txt
+cachefile: nodes.cache
+logtimeformat: "15:04:05"
+numworker: 1
+queuesize: 64384
+usecache: true
+loglevel: info
+MinRequest: 200

@@ -18,22 +18,40 @@ import (
 	log "github.com/sirupsen/logrus"
     "encoding/json"
     "io/ioutil"
-
+    "github.com/spf13/viper"
 
 )
 
 const (
 	// The date format which is appended to our crawl files. But seriously Go, wtf is this??
-	filenameTimeFormat = "02-01-06--15:04:05"
+	// filenameTimeFormat = "02-01-06--15:04:05"
 	// These options should be configurable through the command line one day
-	outPath = "output_data_crawls/"
-	preImagePath = "precomputed_hashes/preimages.csv"
-	numPreImages = 16777216
-	writeToFileFlag = true
-	canaryFile = "configs/canary.txt"
-	sanity = false
+	// outPath = "output_data_crawls/"
+	// preImagePath = "precomputed_hashes/preimages.csv"
+	// numPreImages = 16777216
+	// writeToFileFlag = true
+	// canaryFile = "configs/canary.txt"
+	// sanity = false
 )
+func init()  {
+    viper.SetDefault("FilenameTimeFormat", "02-01-06--15:04:05")
+    viper.SetDefault("OutPath", "output_data_crawls/")
+    viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
+    viper.SetDefault("NumPreImages", 16777216)
+    viper.SetDefault("WriteToFileFlag", true)
+    viper.SetDefault("CanaryFile", "configs/canary.txt")
+    viper.SetDefault("Sanity",false)
+}
 
+type CrawlManagerConfig struct {
+    FilenameTimeFormat string
+    OutPath string
+    PreImagePath string
+    NumPreImages int
+    WriteToFileFlag bool
+    CanaryFile string
+    Sanity bool
+}
 
 // CrawlManager assigns nodes to be crawled to the workers and filters duplicates from the responses.
 type CrawlManager struct {
@@ -56,6 +74,7 @@ type CrawlManager struct {
 	ph *PreImageHandler
 	errorChan chan error
 	errorMap map[string]int
+    config CrawlManagerConfig
 }
 // PreImageHandler contains the precalculated hashes.
 type PreImageHandler struct {
@@ -80,12 +99,13 @@ func NewCrawlManager(queueSize int, cacheFile string, useCache bool) *CrawlManag
 		startTime: time.Now(),
 		errorChan: make(chan error, queueSize),
 		errorMap: make(map[string]int),
+        config: configureCrawlerManager(),
 	}
 	ctx, _ := context.WithCancel(context.Background())
 	cm.ctx = ctx
 	log.Info("Loading pre-images...")
 	// log.WithField("numberOfPreImages", numPreImages).Info("Loading pre-images...")
-	preImages, err := LoadPreimages(preImagePath, numPreImages)
+	preImages, err := LoadPreimages(cm.config.PreImagePath, cm.config.NumPreImages)
 	if err != nil {
 		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
 		if !utils.AskYesNo() {
@@ -100,6 +120,16 @@ func NewCrawlManager(queueSize int, cacheFile string, useCache bool) *CrawlManag
 	cm.ph = ph
 	return cm
 }
+
+func configureCrawlerManager() CrawlManagerConfig {
+    var config CrawlManagerConfig
+    err := viper.Unmarshal(&config)
+	if err != nil {
+		panic(err)
+	}
+    return config
+}
+
 // CreateAndAddWorker creates a new worker for the crawlManager.
 func (cm *CrawlManager) CreateAndAddWorker() {
 	w := NewWorker(cm, len(cm.workers), cm.ctx)
@@ -116,8 +146,8 @@ func (cm *CrawlManager) Stop() {
 
 func (cm *CrawlManager) shutdownAndOutput() {
 	// Perform sanity checks on output
-	if sanity {
-		checkCanaries(cm.knows)
+	if cm.config.Sanity {
+		cm.checkCanaries(cm.knows)
 	}
 	// Save the nodes that were reachable in our node cache, so that the next crawl is faster.
 	if cm.useCache {
@@ -127,7 +157,7 @@ func (cm *CrawlManager) shutdownAndOutput() {
 	for _, w := range cm.workers {
 		w.Stop()
 	}
-	cm.OutputVisitedPeers(writeToFileFlag)
+	cm.OutputVisitedPeers(cm.config.WriteToFileFlag)
 
 }
 
@@ -225,12 +255,12 @@ func (cm *CrawlManager) Run() {
 // :param toFile: indicates whether to create a file
 func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
 	// Write to file...
-	start := cm.startTime.Format(filenameTimeFormat)
-	end := time.Now().Format(filenameTimeFormat)
+	start := cm.startTime.Format(cm.config.FilenameTimeFormat)
+	end := time.Now().Format(cm.config.FilenameTimeFormat)
 	if toFile {
-		vf, err := os.OpenFile(outPath + cm.generateFilename("visitedPeers", ".csv", start, end), os.O_CREATE | os.O_RDWR, 0666)
+		vf, err := os.OpenFile(cm.config.OutPath + cm.generateFilename("visitedPeers", ".csv", start, end), os.O_CREATE | os.O_RDWR, 0666)
 		if os.IsNotExist(err) {
-			os.Mkdir(outPath, 0777)
+			os.Mkdir(cm.config.OutPath, 0777)
 		} else if err != nil {
 			panic(err)
 		}
@@ -246,7 +276,7 @@ func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
 		vf.Sync()
 		vf.Close()
 
-		f, err := os.OpenFile(outPath + cm.generateFilename("peerGraph", ".csv", start, end), os.O_CREATE | os.O_RDWR, 0666)
+		f, err := os.OpenFile(cm.config.OutPath + cm.generateFilename("peerGraph", ".csv", start, end), os.O_CREATE | os.O_RDWR, 0666)
 		fmt.Fprintf(f, "SOURCE;TARGET;ONLINE\n")
 		for node, knowsNodes := range cm.knows {
 			for _, val := range knowsNodes {
@@ -389,8 +419,8 @@ func FindNewMA(old []ma.Multiaddr, new []ma.Multiaddr) []ma.Multiaddr {
 	return newAddrs
 }
 // checkCanaries is a sanity check which tests whether certain nodes have been seen during the crawling.
-func checkCanaries (onlineMap map[peer.ID][]peer.ID)  {
-	file, err := os.Open(canaryFile)
+func (cm *CrawlManager) checkCanaries (onlineMap map[peer.ID][]peer.ID)  {
+	file, err := os.Open(cm.config.CanaryFile)
 	if err != nil {
 		log.WithField("err", err).Error("cannot open canary file")
 	}
