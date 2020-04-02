@@ -42,7 +42,7 @@ session_length_table: plot_data/session_lengths.csv tables/session_lengths.tex
 
 ## Preprocessing
 plot_data/session_lengths.csv: 
-	python sessionLengths.py
+	python3 sessionLengths.py
 
 ## Actual creation of table. We depend on crawlinfo, since we load some data about the crawl from the .lua key-value-store
 tables/session_lengths.tex: plot_data/session_lengths.csv crawlinfo
@@ -55,7 +55,7 @@ tables/session_lengths.tex: plot_data/session_lengths.csv crawlinfo
 ## The data added includes the country code, autonomous systems number and autonomous systems organization.
 ## Furthermore, for some reason, the lookup in Maxmind DBs takes forever, so this computation is quite lenghty.
 
-geo_IP_distribution: maxmindDB geoIP_preprocessing plot_data/geoIP_per_crawl.csv
+geo_IP_distribution: maxmindDB geoIP_preprocessing plot_data/geoIP_per_crawl.csv tables/geoIP_statistics.tex
 
 maxmindDB: geoipDBs/GeoLite2-Country.mmdb geoipDBs/GeoLite2-ASN.mmdb
 
@@ -66,7 +66,7 @@ geoipDBs/GeoLite2-ASN.mmdb: geoipDBs/GeoLite2-Country.mmdb
 
 
 geoIP_preprocessing:
-	python geoIP_from_crawl.py
+	python3 geoIP_from_crawl.py
 
 plot_data/geoIP_per_crawl.csv:
 	Rscript geoIP.R
@@ -79,7 +79,7 @@ protocol_statistics_table: plot_data/protocol_stats.csv  tables/protocol_stats.t
 
 ## Preprocessing
 plot_data/protocol_stats.csv:
-	python extractProtocolStats.py
+	python3 extractProtocolStats.py
 
 ## Creation of table
 tables/protocol_stats.tex: plot_data/protocol_stats.csv
@@ -91,13 +91,20 @@ degree_statistics_table: tables/degree_stats.tex
 tables/degree_stats.tex:
 	Rscript plotting/degree_table.R
 
+##### REPORT #####
+
+report: report.pdf
+
+report.pdf:
+	latexmk -interaction=nonstopmode -f
+
 ##### META COMMANDS #####
 
 plots: number_of_nodes_plot specific_degree_distribution agent_version_distribution
 
-tabs: session_length_table protocol_statistics_table degree_statistics_table #geo_IP_distribution
+tabs: session_length_table protocol_statistics_table degree_statistics_table geo_IP_distribution
 
-all: crawlinfo plots tabs
+all: crawlinfo plots tabs report
 
 ## Delete the figures and tables
 clean:
@@ -113,3 +120,5 @@ clean:
 	rm -f tables/degree_stats.tex
 	rm -f tables/protocol_stats.tex
 	rm -f tables/session_lengths.tex
+	rm -f report.pdf
+	latexmk -c

@@ -5,7 +5,6 @@ import sys
 import geoip2.database
 import ipaddress
 import tempfile
-import _pickle as pickle
 
 from maxminddb import (MODE_AUTO, MODE_MMAP, MODE_MMAP_EXT, MODE_FILE,
                        MODE_MEMORY, MODE_FD)
@@ -54,8 +53,8 @@ if __name__ == "__main__":
 	onlyOnlineNodes = False
 	geoIPPathCountry = "geoipDBs/GeoLite2-Country.mmdb"
 	geoIPPathAS = "geoipDBs/GeoLite2-ASN.mmdb"
-	geoIPDB = geoip2.database.Reader(geoIPPathCountry, mode=MODE_MMAP_EXT)
-	ASDB = geoip2.database.Reader(geoIPPathAS, mode=MODE_MMAP_EXT)
+	geoIPDB = geoip2.database.Reader(geoIPPathCountry)#, mode=MODE_MMAP_EXT)
+	ASDB = geoip2.database.Reader(geoIPPathAS)#, mode=MODE_MMAP_EXT)
 
 	i = 0
 	for crawlFile in peerFiles:
@@ -66,10 +65,10 @@ if __name__ == "__main__":
 		ts = extractTimestamp(crawlFile)
 		multiCountry = 0
 		print(crawlFile)
-		print("Progress: " + str(i*100/len(peerFiles)))
+		print("Progress: " + str(i*100/len(peerFiles)) + "%")
 		totalCountryCount = 0
 		tmpf = tempfile.NamedTemporaryFile(mode="r+")
-		tmpf.write("nodeid;IP;country;ASNO;ASName;online\n")
+		tmpf.write("nodeid;IP;country;ASNO;ASName;online;agentVersion\n")
 		with open(crawlDir+crawlFile, "r") as f:
 			lines = [l for l in f]
 
@@ -82,6 +81,7 @@ if __name__ == "__main__":
 				s = l.split(";")
 				nodeid = s[0]
 				nodeOnline = s[2]
+				agentVersion = s[3]
 				# Strip the brackets around the MA list, split at the whitespaces, extract the IP (if possible) and ignore 'None' addresses
 				rawMA = s[1].strip("[]")
 				# We had at least one occurence of an ID without address -> ignore that
@@ -110,8 +110,8 @@ if __name__ == "__main__":
 						except geoip2.errors.AddressNotFoundError:
 							# Just append "Unknown"
 							addrs = str(ip) + ";Unknown;NA;NA"
-					# The \n is still in nodeOnline
-					tmpf.write(nodeid + ";" + addrs + ";" + nodeOnline)
+					# This code assumes the updated output format with 4 columns, the 4th being the agent version
+					tmpf.write(nodeid + ";" + addrs + ";" + nodeOnline + ";" + agentVersion)
 
 		tmpf.seek(0)
 		with open(outputDir+crawlFile, "w") as f:

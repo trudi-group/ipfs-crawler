@@ -1,0 +1,7 @@
+# Lua latex=4, pdflatex=1 
+$pdf_mode = 4;
+
+@default_files = ('report.tex');
+
+#remove more files than in the default configuration
+@generated_exts = qw(acn acr alg aux code ist fls glg glo gls idx ind lof lot out thm toc tpt nav run.xml snm vrb);

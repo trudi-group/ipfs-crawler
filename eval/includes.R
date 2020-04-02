@@ -1,6 +1,6 @@
 # Includes, libraries and constants
 
-packages = c("data.table", "reshape2", "ggplot2", "scales", "hash",
+packages = c("data.table", "reshape2", "ggplot2", "scales",
              "tikzDevice", "stringr", "pbapply", "igraph")
 
 # shamelessly copied from Github (https://gist.github.com/stevenworthington/3178163)
@@ -9,23 +9,24 @@ ipak <- function(pkg){
   new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
   if (length(new.pkg)) 
     install.packages(new.pkg, dependencies = TRUE)
-  sapply(pkg, require, character.only = TRUE)
+  sapply(pkg, function(p) {
+    suppressPackageStartupMessages(require(p, character.only = TRUE))
+  })
 }
 
 ipak(packages)
-
+pbo = pboptions(type="txt") # !!!
 theme_set(theme_bw(10))
 
 ################# CONSTANTS ###########################
 
 crawlDir = "../output_data_crawls/"
-processedCrawlsDir = "../../crawler/useful_crawls/hetzner_crawl/processed_crawls/"
+processedPeerFiles = "../output_data_crawls/geoIP_processing/"
 outFilePath = "variables_for_tex.lua"
 outPlotPath = "./figures/"
 outTabPath = "./tables/"
 visitedPattern = "visitedPeers_[:alphanum:]*"
 peerGraphPattern = "peerGraph_[:alphanum:]*"
-bootnodefile = "../configs/bootstrappeers.txt"
 plotWidth = 3.5
 plotHeight = 2.5
 bitmapHeight = 860
@@ -91,20 +92,6 @@ LoadBootNodesFromFile = function(filepath) {
 LoadDT = function(fullpath, header=F) {
   return(data.table(read.csv(fullpath, header = header, stringsAsFactors = F, sep=";")))
 }
-
-# loadGraphs = function(crawls, crawldir, online) {
-#   print("Warning: This loads all graphs into memory!")
-#   res = pblapply(crawls, function(name) {
-#     dt = data.table(read.csv(paste(crawldir, name, sep=""), header = T, stringsAsFactors = F, sep=";"))
-#     if (online == T) {
-#       dt = dt[ONLINE == "true"]
-#     }
-#     dt$ONLINE=NULL
-#     g = graph_from_edgelist(as.matrix(dt), directed = T)
-#     return(g)
-#   })
-#   return(res)
-# }
 
 ## Load one graph from .csv into memory
 loadGraph = function(fullpath, online) {

@@ -5,13 +5,6 @@ source("includes.R")
 outDataFile = "plot_data/geoIP_per_crawl.csv"
 
 processedPeerFiles = "../output_data_crawls/geoIP_processing/"
-countryCutOff = 10
-## Numbers <= 12 are written out
-if (countryCutOff <= 12) {
-  writeToEval("topNNodes", wordNumbers[countryCutOff])
-} else {
-  writeToEvalRounded("topNNodes", countryCutOff)
-}
 
 procCrawls = list.files(processedPeerFiles, pattern=visitedPattern)
 
@@ -21,7 +14,7 @@ CountsPerTS = pblapply(procCrawls, function(pc) {
   dat$ASNO = NULL
   dat$ASName = NULL
   dat$IP = NULL
-  print("Derp")
+  dat$agentVersion = NULL
   ## All peers with only LocalIP
   # localIPIndexSet = dat[, .I[.N == 1 && grepl("LocalIP", country, fixed=T)], .(nodeid)][,V1]
   localIPIndexSet = dat[, .I[all(grepl("LocalIP", country, fixed=T))], .(nodeid)][,V1]
@@ -37,15 +30,12 @@ CountsPerTS = pblapply(procCrawls, function(pc) {
   ## that fulfills the expression for a given ID.
   ## This yields a vector of countries which we count with table() and
   ## give the result back to data.table
-  print("Derp2")
   ccTmp = countryCount[countryCount[, .I[count == max(count)], by=c("nodeid")][,V1]]
   ## We resolve duplicates by just taking the first value
   ccTmp = ccTmp[ccTmp[, .I[1], .(nodeid, country, online)][,V1]]
   
-  print("Derp3")
   tabAll = data.table(table(ccTmp$country))
   tabAll = rbindlist(list(tabAll, data.table(V1 = c("LocalIP"), N = c(numLocalIPs))))
-  print("Derp4")
   tabAll$timestamp = rep(fdate, nrow(tabAll))
   tabAll$type = rep("all", nrow(tabAll))
   tabReachable = data.table(table(ccTmp[online=="true"]$country))

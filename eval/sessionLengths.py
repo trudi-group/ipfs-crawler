@@ -93,8 +93,8 @@ if __name__ == "__main__":
 			for timeTuple in sessionDict[entry]:
 				f.write("%s;%d\n" % (entry, (timeTuple[1]-timeTuple[0]).total_seconds()))
 
-	print("Writing dict with time tuples to file...")
+	# print("Writing dict with time tuples to file...")
 
-	with open(rawDictOut, "w") as f:
-		for entry in sessionDict:
-			f.write("%s;%s\n" % (entry, sessionDict[entry]))
+	# with open(rawDictOut, "w") as f:
+	# 	for entry in sessionDict:
+	# 		f.write("%s;%s\n" % (entry, sessionDict[entry]))

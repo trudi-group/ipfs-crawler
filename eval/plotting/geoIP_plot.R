@@ -5,6 +5,14 @@ source("includes.R")
 inputDataFile = "plot_data/geoIP_per_crawl.csv"
 tabPath = "./tables/geoIP_statistics.tex"
 
+countryCutOff = 10
+## Numbers <= 12 are written out
+if (countryCutOff <= 12) {
+  writeToEval("topNNodes", wordNumbers[countryCutOff])
+} else {
+  writeToEvalRounded("topNNodes", countryCutOff)
+}
+
 mcounts = LoadDT(inputDataFile, header=T)
 mcounts$N = as.double(mcounts$N)
 
@@ -14,8 +22,9 @@ localIPs = mcounts[V1 == "LocalIP",][,N,timestamp]
 avgPercLocalIP = mean(100*localIPs$N/numNodes$numNodes)
 writeToEvalRounded("PercLocalIPs", avgPercLocalIP)
 
+numberOfTimestamps = length(unique(mcounts$timestamp))
 ## The mean + CI computation
-aggrCounts = mcounts[, .(AvgCount = sum(N)/length(CountsPerTS), CILower = CI(N)[1], CIUpper = CI(N)[2]), by = .(V1, type)]
+aggrCounts = mcounts[, .(AvgCount = sum(N)/length(numberOfTimestamps), CILower = CI(N)[1], CIUpper = CI(N)[2]), by = .(V1, type)]
 
 ## Sort by avgcount, so we can take the 10 (or countryCutoff) largest shares
 mcountsAll = aggrCounts[order(-AvgCount)]
