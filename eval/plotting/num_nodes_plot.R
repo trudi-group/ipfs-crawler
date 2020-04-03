@@ -33,9 +33,9 @@ q = ggplot(meltedDT, aes(x=ts, y=value, color=variable)) +
 # q
 # dev.off()
 
-pdf(file=paste(outPlotPath, "num_nodes.pdf", sep=""), width=plotWidth, height=plotHeight)
-q
-dev.off()
+# pdf(file=paste(outPlotPath, "num_nodes.pdf", sep=""), width=plotWidth, height=plotHeight)
+# q
+# dev.off()
 
 png(filename=paste(outPlotPath, "num_nodes.png", sep=""), height = bitmapHeight, width=bitmapWidth)
 q

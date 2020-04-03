@@ -108,13 +108,13 @@ png(filename=paste(outPlotPath, "log_online_nodes_degree_distribution.png", sep=
 qOnline
 dev.off()
 
-pdf(file=paste(outPlotPath, "log_all_nodes_degree_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
-qAll
-dev.off()
-
-pdf(file=paste(outPlotPath, "log_online_nodes_degree_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
-qOnline
-dev.off()
+# pdf(file=paste(outPlotPath, "log_all_nodes_degree_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
+# qAll
+# dev.off()
+# 
+# pdf(file=paste(outPlotPath, "log_online_nodes_degree_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
+# qOnline
+# dev.off()
 
 
 

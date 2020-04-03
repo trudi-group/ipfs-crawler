@@ -102,7 +102,8 @@ tables/degree_stats.tex: plot_data/degree_stats.csv
 report: report.pdf
 
 report.pdf:
-	latexmk -interaction=nonstopmode -f
+	latexmk -lualatex -f report.tex
+	mv report.pdf plot_data/report.pdf
 
 ##### META COMMANDS #####
 

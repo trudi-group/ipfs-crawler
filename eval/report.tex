@@ -6,15 +6,10 @@
 \usepackage[binary-units]{siunitx}
 \sisetup{round-mode=places,round-precision=2}
 \usepackage[USenglish]{babel}
-% align environment
-\usepackage{amsmath}
-% Math symbols
-\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{longtable}
 
 \usepackage[font=footnotesize]{caption}
-\usepackage[font=footnotesize]{subcaption}
-
-\usepackage{tikz}
 
 \usepackage{lua-utils}
 
@@ -41,7 +36,8 @@ In the \SI{\lraw{crawlPeriod}}{\day} we performed a total of \lraw{numCrawls} cr
 We found an average number of \lraw{avgNumberOfNodes} nodes per crawl; the crawler was able to connect to \SI{\lraw{avgOnline}}{\percent} of them.
 %
 \begin{figure}
-  \input{figures/num_nodes}
+\centering
+  \includegraphics[width=.7\textwidth]{figures/num_nodes.png}
   \caption{Number of nodes over time, distinguished by all and reachable (=answered to our query) nodes. Times are in UTC.}
   \label{fig:num_nodes}
 \end{figure}
@@ -64,7 +60,9 @@ Using the crawl data, we interpolate the uptime of nodes, the results of which a
 \end{table}
 %
 \begin{figure}
-  \input{figures/agent_version_distribution}
+  \centering
+  \includegraphics[width=.7\textwidth]{figures/agent_version_distribution.png}
+  % \input{figures/agent_version_distribution}
   \caption{Agent version distribution, the top ten versions include \SI{\lraw{AgentVersionIncludeTruncatedPercentage}}{\percent}} of all seen agent versions.
   \label{figs:agent_version_distribution}
 \end{figure}
@@ -114,28 +112,36 @@ The protocols ``ipfs'' and ``p2p-circuit'' are connections through IPFS' relay n
 
 \section{Overlay Graph Properties}
 \label{sec:graph_properties}
-%
+
 \begin{figure}[!htb]
 \centering
-        \input{figures/log_all_nodes_degree_distribution}
+        \includegraphics[width=.8\textwidth]{figures/log_all_nodes_degree_distribution.png}
+        % \input{figures/log_all_nodes_degree_distribution}
         \caption{In-Degree distribution from the first crawl including \emph{all} found nodes. Other crawls yielded similar shapes.}
         \label{fig:log_all_nodes_degree_distribution}
 \end{figure}
 \begin{figure}[!htb]
-        \input{figures/log_online_nodes_degree_distribution}
+        \includegraphics[width=.8\textwidth]{figures/log_online_nodes_degree_distribution.png}
+        % \input{figures/log_online_nodes_degree_distribution}
         \caption{The same distribution as Figure~\ref{fig:log_all_nodes_degree_distribution}, but only including \emph{reachable} (\ie, online) nodes.}
         \label{fig:log_online_nodes_degree_distribution}
 \end{figure}
+
+
+\input{tables/degree_stats}
 %
 
-\begin{table}[htb]
-  \center
-  \input{tables/degree_stats}
-  \caption{Average of the degree statistics of all \lraw{numCrawls} crawls.}
-  \label{tab:degreeStats}
-\end{table}
-%
+\section*{Appendix}
+\label{sec:appendix}
 
+Full table of agent versions.
+\input{tables/full_agent_version_tab}
+
+Full table of countries.
+\input{tables/all_countries_geoIP_statistics}
+% \caption{The complete table of geoIP statistics (cf. Tab.~\ref{tab:geoip})}
+% \label{tab:all_countries_geoIP}
+% \end{longtable}
 
 % \cref{fig:log_all_nodes_degree_distribution,fig:log_online_nodes_degree_distribution} depict the log-log in-degree distribution from the first crawl; note that other crawls yielded similar results.
 % We differentiate between all found nodes (\cref{fig:log_all_nodes_degree_distribution}) and only reachable nodes (\cref{fig:log_online_nodes_degree_distribution}).

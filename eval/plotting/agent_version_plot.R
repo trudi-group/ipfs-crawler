@@ -18,8 +18,9 @@ truncatedDT = agentCounts[1:clientCutOff]
 
 ## The top clientCutOff-versions make for this many of all seen clients:
 totalNumberOfVersions = sum(agentCounts$avgcount)
-writeToEvalRounded("AgentVersionIncludeTruncatedPercentage", sum(truncatedDT$avgcount)*100/totalNumberOfVersions)
-print(sum(truncatedDT$avgcount)/totalNumberOfVersions)
+truncatedVersions = sum(truncatedDT$avgcount)
+writeToEvalRounded("AgentVersionIncludeTruncatedPercentage", truncatedVersions*100/totalNumberOfVersions)
+# print(sum(truncatedDT$avgcount)/totalNumberOfVersions)
 
 ## Reorder the versions so that the plot labels are in decreasing order
 truncatedDT = truncatedDT[, pos:=cumsum(avgcount)-0.5*avgcount, by="version"]
@@ -37,9 +38,9 @@ q = ggplot(truncatedDT, aes(x="", y=avgcount, fill=version)) +
 # q
 # dev.off()
 
-pdf(file=paste(outPlotPath, "agent_version_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
-q
-dev.off()
+# pdf(file=paste(outPlotPath, "agent_version_distribution.pdf", sep=""), width=bitmapWidth, height=bitmapHeight)
+# q
+# dev.off()
 
 png(filename=paste(outPlotPath, "agent_version_distribution.png", sep=""), height = bitmapHeight, width=bitmapWidth)
 q
