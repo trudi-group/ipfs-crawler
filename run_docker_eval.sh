@@ -2,7 +2,7 @@
 
 DEFAULTDIR="$(pwd)/output_data_crawls"
 DATADIR=""
-UID=$(id -u $USER)
+uid=$(id -u $USER)
 
 if [[ $1 == "" ]]; then
 		DATADIR=$DEFAULTDIR
@@ -22,7 +22,7 @@ sudo docker run \
 	--mount type=bind,source=$(pwd)/eval/plot_data,target=/eval/plot_data \
 	--mount type=bind,source=$(pwd)/eval/figures,target=/eval/figures \
 	--mount type=bind,source=$(pwd)/eval/tables,target=/eval/tables \
-	-u $UID \
+	-u $uid \
 	scriptkitty/ipfs-crawl-eval
 
 echo "Finished eval, copying report.pdf to $(pwd):"
