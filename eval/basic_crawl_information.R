@@ -24,6 +24,10 @@ durations = pbsapply(crawls, crawlDurationFromFilename)
 crawlPeriod = as.double(max(timestamps) - min(timestamps), unit="days")
 numCrawls = length(crawls)
 
+# Get start and end dates
+startDate = min(timestamps)
+endDate = max(timestamps)
+
 # Write information to eval.lua.
 # CrawlPeriod is in days
 writeToEvalRounded("crawlPeriod", crawlPeriod)
@@ -31,3 +35,6 @@ writeToEvalRounded("crawlPeriod", crawlPeriod)
 writeToEvalRounded("numCrawls", numCrawls)
 # avgCrawlDuration is in minutes.
 writeToEvalRounded("avgCrawlDuration", mean(durations))
+# Write dates
+writeToEval("crawlStartDate", paste("\"",startDate, "\"", sep=""))
+writeToEval("crawlEndDate", paste("\"",endDate, "\"", sep=""))

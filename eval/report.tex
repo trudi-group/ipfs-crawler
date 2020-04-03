@@ -25,17 +25,14 @@
 \begin{document}
 \maketitle
 
-% TODO: start and end date
-% TODO: Full GeoIP + AgentVersion List in Appendix?
-
 \section{Basic Statistics}
 \label{sec:basic}
 
-This is an automatically-generated report on the IPFS-crawl from until .
+This is an automatically-generated report on the IPFS-crawl from \lraw{crawlStartDate} until \lraw{crawlEndDate}.
 In the \SI{\lraw{crawlPeriod}}{\day} we performed a total of \lraw{numCrawls} crawls in total, each of which took \SI{\lraw{avgCrawlDuration}}{\minute} to complete, on average.
 We found an average number of \lraw{avgNumberOfNodes} nodes per crawl; the crawler was able to connect to \SI{\lraw{avgOnline}}{\percent} of them.
 %
-\begin{figure}
+\begin{figure}[ht]
 \centering
   \includegraphics[width=.7\textwidth]{figures/num_nodes.png}
   \caption{Number of nodes over time, distinguished by all and reachable (=answered to our query) nodes. Times are in UTC.}
@@ -46,11 +43,9 @@ The number of nodes over time is depicted in Figure~\ref{fig:num_nodes}, where t
 The figure distinguishes between all nodes and nodes that were reachable, \ie, the crawler was able to establish a connection to these nodes.
 
 Using the crawl data, we interpolate the uptime of nodes, the results of which are gathered in Table~\ref{tab:sessionLengths}.
-\begin{itemize}
-  \item Crawl duration as granularity
-  \item We see a node in consecutive crawls, we assume it was online in the meantime
-  \item Inverse cumulative distribution
-\end{itemize}
+To this end, we use a simple assumption: if we see a node in consecutive crawls, we assume that it was online in the meantime.
+Therefore, the crawl duration (\SI{\lraw{avgCrawlDuration}}{\minute}) is the granularity.
+The table depicts the inverse cumulative distribution of uptimes: each row gives the number of sessions (and total percentage) that were \emph{longer} than the given duration.
 %
 \begin{table}
   \center
@@ -59,7 +54,13 @@ Using the crawl data, we interpolate the uptime of nodes, the results of which a
   \label{tab:sessionLengths}
 \end{table}
 %
-\begin{figure}
+
+We also gather agent versions, the results of which are depicted in Figure~\ref{figs:agent_version_distribution}.
+It shows the ten agent versions with the highest popularity, according to the data.
+In particular, the average number of peers with that agent version per crawl is shown (similar to the country distribution in Tab.~\ref{tab:geoip}).
+The complete table for all agent versions and their counts can be found in the Appendix.
+%
+\begin{figure}[ht]
   \centering
   \includegraphics[width=.7\textwidth]{figures/agent_version_distribution.png}
   % \input{figures/agent_version_distribution}
@@ -76,14 +77,15 @@ Using the crawl data, we interpolate the uptime of nodes, the results of which a
 \label{tab:geoip}
 \end{table}
 %
-\begin{itemize}
-  \item GeoIp lookup: only top xyz countries
-  \item Complete table in appendix?
-  \item 95\% confidence interval, assuming student t-distribution for each country
-\end{itemize}
-%
-Table \ref{tab:geoip} depicts the top \lraw{topNNodes} countries, both for all discovered nodes and for nodes that were reachable by the crawler.
+
+Table~\ref{tab:geoip} depicts the top \lraw{topNNodes} countries, both for all discovered nodes and for nodes that were reachable by the crawler.
 These \lraw{topNNodes} countries contain \SI{\lraw{geoIPtopNAllPercentage}}{\percent} \SI{\lraw{geoIPtopNReachablePercentage}}{\percent} in the case of reachable nodes) of the whole network.
+The complete table can be found in the Appendix.
+
+The table shows the mean count per country per crawl as well as \SI{95}{\percent} confidence intervals (assuming a student t distribution of observations).
+Furthermore, the statistics are distinguished between all and only reachable peers.
+This means a row should be read as follows: for country $c$ we have seen ``Count'' peers from that country per crawl, on average.
+The ``Conf. Int.'' column shows how large the spread around this average value is.
 
 Of all seen nodes \SI{\lraw{PercLocalIPs}}{\percent} of all nodes \emph{only} provide local or private IP addresses, thus making it impossible to connect to them.
 This is in line with the default behavior of IPFS when operated behind a NAT.
@@ -96,22 +98,25 @@ This is never the case for symmetric NATs, which assign a unique external addres
 \begin{table}[htb]
   \center
   \input{tables/protocol_stats}
-  \caption{Protocol Usage.}
+  \caption{Network statistics: protocol capabilities among IPFS peers.}
   \label{tab:protocols}
 \end{table}
 %
-\begin{itemize}
-  \item Network layer statistics
-  \item Even if multiple multiaddresses, only counted as ``peer supports this''
-  \item Aggregated over complete crawl. If a peer supported, \eg, IPv6 sometime, then it will be counted as supports Ipv6 in general.
-\end{itemize}
+
 IPFS supports connections through multiple network layer protocols; Table~\ref{tab:protocols} shows the prevalence of encountered protocols during our crawls.
-If a node was reachable through multiple, say IPv4 addresses, we only count it as one occurence of IPv4 to not distort the count.
-The majority of nodes support connections through IPv4, followed by IPv6, whereas other protocols are barely used at all.
+If a node was reachable through multiple, say IPv4 addresses, we only count it as one occurrence of IPv4 to not distort the count.
+This is aggregated over all crawls: if a peer supported, \eg, IPv6 at some time, then it will be counted as supporting IPv6 in general.
 The protocols ``ipfs'' and ``p2p-circuit'' are connections through IPFS' relay nodes, ``dnsaddr'', ``dns4/6'' are DNS-resolvable addresses and ``onion3'' signals TOR capabilities.
 
 \section{Overlay Graph Properties}
 \label{sec:graph_properties}
+
+Figures~\ref{fig:log_all_nodes_degree_distribution} and~\ref{fig:log_online_nodes_degree_distribution} depict the log-log in-degree distribution from the first crawl.
+You can change the number in the \texttt{Makefile} to check different crawls; in the best case the distributions should not differ too much between individuals crawls.
+We differentiate between all found nodes (Figure~\ref{fig:log_all_nodes_degree_distribution}) and only reachable nodes (Figure~\ref{fig:log_online_nodes_degree_distribution}).
+
+If the the plotted points form (roughly) a straight line, then the in-degree distribution can be approximated by a power-law and the graph could be classified as scale-free.
+This would be in line with prior measurements on other Kademlia systems.
 
 \begin{figure}[!htb]
 \centering
@@ -127,43 +132,17 @@ The protocols ``ipfs'' and ``p2p-circuit'' are connections through IPFS' relay n
         \label{fig:log_online_nodes_degree_distribution}
 \end{figure}
 
-
+Table~\ref{tab:degreeStats} depicts the aggregated statistics on the degree of each crawls' graph.
+Depicted is the mean, median, minimum and maximum degree, differentiated by in- and out-degree.
 \input{tables/degree_stats}
 %
 
 \section*{Appendix}
 \label{sec:appendix}
 
-Full table of agent versions.
+Full table of agent versions, complete version of Fig.~\ref{figs:agent_version_distribution}.
 \input{tables/full_agent_version_tab}
 
-Full table of countries.
+Full table of countries, complete version of Tab.~\ref{tab:geoip}.
 \input{tables/all_countries_geoIP_statistics}
-% \caption{The complete table of geoIP statistics (cf. Tab.~\ref{tab:geoip})}
-% \label{tab:all_countries_geoIP}
-% \end{longtable}
-
-% \cref{fig:log_all_nodes_degree_distribution,fig:log_online_nodes_degree_distribution} depict the log-log in-degree distribution from the first crawl; note that other crawls yielded similar results.
-% We differentiate between all found nodes (\cref{fig:log_all_nodes_degree_distribution}) and only reachable nodes (\cref{fig:log_online_nodes_degree_distribution}).
-% The (roughly) straight line in the figure indicates a highly skewed distribution where some peers have very high in-degree (up to 1000) whereas most peers have a fairly small in-degree.
-% In other words, the in-degree distribution can be approximated by a power-law, hence, the graph can be classified as scale-free, which is in line with prior measurements on other Kademlia systems~\cite{DBLP:conf/iscc/SalahRS14}.
-
-% In the following, we specifically focus on the top degree nodes.
-% Top degree nodes were defined as the \SI{\lraw{topDegreeRatio}}{\percent} of all nodes, yielding \lraw{avgTopNodes} nodes on average.
-% We refrain from defining a number, say the 20 nodes with the highest degree, since this would weigh crawls with fewer nodes differently than crawls with a higher number of total observed nodes.
-% %
-% \begin{figure}
-%   \input{figs/maxdegecdf}
-%   \caption{ECDF of how often the same nodes were within the top-degree nodes.}
-%   \label{fig:maxdegecdf}
-% \end{figure}
-% %
-% \cref{fig:maxdegecdf} depicts a cumulative distribution of how many times the nodes with the highest degree were seen in the crawls.
-% If a node was in the set of highest-degree nodes in one run but not in other runs, its ``percentage seen'' would be $\frac{1}{\text{\# of crawls}} = \frac{1}{\lraw{numCrawls}} = 0.0033$ or \SI{0.33}{\percent}.
-% On the other extreme, if a node was within the highest degree nodes in every crawl, its percentage seen would be a \SI{100}{\percent}.
-
-% The cumulative distribution in \cref{fig:maxdegecdf} shows a high churn within the highest degree nodes: approximately \SI{80}{\percent} of nodes were only present in \SI{10}{\percent} of the crawls.
-% Only a few nodes have a high degree in the majority of all crawls; these nodes are the bootstrap nodes along a handful of others.
-% % \todo{How many others? Can we say who they are? Or \emph{who controls them} (or which \emph{types} of orgs?)}
-
 \end{document}
