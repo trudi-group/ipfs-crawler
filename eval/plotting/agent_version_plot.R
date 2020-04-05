@@ -26,12 +26,9 @@ writeToEvalRounded("AgentVersionIncludeTruncatedPercentage", truncatedVersions*1
 truncatedDT = truncatedDT[, pos:=cumsum(avgcount)-0.5*avgcount, by="version"]
 truncatedDT$version = with(truncatedDT, reorder(version, -avgcount))
 
-
 q = ggplot(truncatedDT, aes(x="", y=avgcount, fill=version)) +
-  geom_bar(width=1, stat="identity", color="white") +
-  coord_polar("y", start=0) +
-  geom_text(aes(label = avgcount), position = position_stack(vjust = 0.5), color = "white")+
-  theme_void()
+  geom_bar(width=1, stat="identity", color="white", position="dodge") +
+  xlab("") + ylab("Average count per crawl")
 
 ## Output to .tex but also to .png
 # tikz(file=paste(outPlotPath, "agent_version_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
