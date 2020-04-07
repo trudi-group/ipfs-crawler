@@ -25,7 +25,9 @@ writeToEvalRounded("PercLocalIPs", avgPercLocalIP)
 
 numberOfTimestamps = length(unique(mcounts$timestamp))
 ## The mean + CI computation
-aggrCounts = mcounts[, .(AvgCount = sum(N)/length(numberOfTimestamps), CILower = CI(N)[1], CIUpper = CI(N)[2]), by = .(V1, type)]
+aggrCounts = mcounts[, .(AvgCount = sum(N)/numberOfTimestamps, 
+                         CILower = format(max(CI(N)[1], 0), scientific = F), 
+                         CIUpper = CI(N)[2]), by = .(V1, type)]
 
 ## Sort by avgcount, so we can take the 10 (or countryCutoff) largest shares
 mcountsAll = aggrCounts[order(-AvgCount)]
