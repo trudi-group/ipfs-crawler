@@ -34,6 +34,7 @@ bitmapWidth = 1200
 plotDateFormat = "%d/%m %H:%M"
 plotPointSize = 0.5
 palette <- c("#018571", "#DFC27D", "#A6611A")
+plotBreakNumber = 5
 
 wordNumbers = c("\"one\"", "\"two\"", "\"three\"", "\"four\"", "\"five\"", "\"six\"", "\"seven\"",
                 "\"eight\"", "\"nine\"", "\"ten\"", "\"eleven\"", "\"twelve\"")

@@ -24,7 +24,8 @@ q = ggplot(meltedDT, aes(x=ts, y=value, color=variable)) +
   scale_color_discrete(name="Node type", labels=c("All", "Reachable")) +
   scale_linetype_discrete(name="Node type", labels=c("All", "Reachable")) +
   scale_shape_discrete(name="Node type", labels=c("All", "Reachable")) +
-  scale_y_continuous(breaks = seq(0, max(meltedDT$value), by=10000)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = plotBreakNumber)) +
+  # scale_y_continuous(breaks = seq(0, maxYValue, by=yAxisBreaks)) +
   scale_x_datetime(breaks = plotDateBreaks, date_labels = plotDateFormat) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 

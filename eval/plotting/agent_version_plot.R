@@ -28,7 +28,8 @@ truncatedDT$version = with(truncatedDT, reorder(version, -avgcount))
 
 q = ggplot(truncatedDT, aes(x="", y=avgcount, fill=version)) +
   geom_bar(width=1, stat="identity", color="white", position="dodge") +
-  xlab("") + ylab("Average count per crawl")
+  xlab("") + ylab("Average count per crawl") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = plotBreakNumber))
 
 ## Output to .tex but also to .png
 # tikz(file=paste(outPlotPath, "agent_version_distribution.tex", sep=""), width=plotWidth, height=plotHeight)
