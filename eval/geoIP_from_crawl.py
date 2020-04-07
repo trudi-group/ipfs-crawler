@@ -92,7 +92,8 @@ if __name__ == "__main__":
 				rawMA = rawMA.split(" ")
 				MAProtArray = [ParseMA(ma) for ma in rawMA]
 				# We get (protocol, addr) back, if the address is ipv4 or ipv6
-				AddrArray = [ma[1] for ma in MAProtArray if ma[1]]
+				AddrArray = list(set([ma[1] for ma in MAProtArray if ma[1]]))
+
 				# out format for the output is nodeID;[<ip, country_code, as_no, as_name>, <...>, ...];true/false
 				for ip in AddrArray:
 					if ipaddress.ip_address(ip).is_private or ipaddress.ip_address(ip).is_link_local:
