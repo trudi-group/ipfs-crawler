@@ -18,12 +18,19 @@ import (
 )
 
 type MainConfig struct {
+    // Number of Workers attached.
 	NumWorker     int
+    // Time format of log entries.
 	LogTimeFormat string
+    // File which contains the bootstrap peers
 	BootstrapFile string
+    // Buffersize of each queue that we are using for communication between threads
 	QueueSize     int
+    // Log level. Debug contains a lot but is very spammy
 	LogLevel      string
+    // Indicates whether nodes should be cached during crawl runs to speed up the next successive crawl
 	UseCache      bool
+    // File where the nodes between crawls are cached (if caching is enabled)
 	CacheFile     string
 }
 
@@ -58,7 +65,7 @@ func init() {
     viper.SetDefault("numWorker", 1)
     viper.SetDefault("logTimeFormat", "15:04:05")
     viper.SetDefault("bootstrapFile", "configs/bootstrappeers.txt")
-    viper.SetDefault("logLevel", log.DebugLevel)
+    viper.SetDefault("logLevel", "info")
     viper.SetDefault("queueSize", 64384)
 }
 
@@ -186,7 +193,8 @@ func setupViper() MainConfig {
 
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		// panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		log.Warning(err)
 	}
 	// write read config back to config obj
 	var config MainConfig
