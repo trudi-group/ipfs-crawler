@@ -19,7 +19,7 @@ import (
     "encoding/json"
     "io/ioutil"
     "github.com/spf13/viper"
-
+    "github.com/DataDog/zstd"
 )
 
 const (
@@ -385,8 +385,14 @@ func LoadPreimages(path string, mapsize int) (map[string]string, error) {
 	}
 	defer file.Close()
 	preImages := make(map[string]string, mapsize)
+    var scanner *bufio.Scanner
+    if strings.HasSuffix(path, ".zst") {
+        compressed := zstd.NewReader(file)
+        scanner = bufio.NewScanner(compressed)
+    }else{
+        scanner = bufio.NewScanner(file)
+    }
 
-	scanner := bufio.NewScanner(file)
 	// Throw away the header line
 	scanner.Scan()
 	for scanner.Scan() {
