@@ -170,9 +170,74 @@ func (w *Worker) Run() {
 	}
 }
 
+func (w *Worker) CrawlPeerAlt(askPeer peer.AddrInfo) (*NodeKnows, error) {
+    // Strip addresses we cannot connect to anyways
+    recvPeer := stripLocalAddrs(askPeer)
+	log.WithFields(log.Fields{
+		"workerID": w.id,
+		"destAddr": recvPeer,
+	}).Debug("Worker connecting to")
+    // Check if there are an addresses left
+	if len(recvPeer.Addrs) == 0 {
+		// Nope
+		return nil, fmt.Errorf("ID: %s has only local adresses", askPeer.ID)
+	}
+    time.Sleep(time.Duration(rand.Intn(w.config.MaxBackOffTime)) * time.Millisecond)
+
+	// Roadmap:
+	// 1) Connect to peer
+	// 2) Start a new stream = subprotocol exchange
+	// 3) Send FindNode(s)
+	// 4) Parse response, add to Queue
+	ctx, cancel := context.WithTimeout(w.ctx, w.config.ConnectTimeout)
+	defer cancel()
+	// Connect() adheres to the context deadline and gives and error when the context deadline expired
+	// ToDo: It seems that this is ignored when the context previously expired
+	err := w.h.Connect(ctx, recvPeer)
+	if err != nil {
+		// We couldn't connect to the target peer. This is either because it's unreachable or the context timed out.
+		// In that case, we give up and consider the peer as unreachable.
+		log.WithFields(log.Fields{
+			"workerID": w.id,
+			"err": err,
+			"destAddr": recvPeer,
+		}).Debug("Could not connect.")
+		return nil, err
+	}
+	// Create a new stream
+	// Whereas NewStream() does not care if the context timed out.
+	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, ProtocolDHT)
+	if err != nil {
+		// ToDo: Better error handling
+		log.WithFields(log.Fields{
+			"workerID": w.id,
+			"err": err,
+			"destAddr": recvPeer,
+		}).Debug("Could not open stream.")
+		return nil, err
+	}
+	defer dhtStream.Close()
+
+	// returnedPeers := GetRandomNeighbors(dhtStream)
+	returnedPeers, err := w.FullNeighborCrawl(ctx, dhtStream, recvPeer, w.cm.ph)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"workerID": w.id,
+			"err": err,
+			"destAddr": recvPeer,
+		}).Debug("Error sending crawl msg.")
+		// If there are still some peers that we learned of then we deal with them in the normal way, despite the error.
+		// If there are no peers, there's no hope.
+		if len(returnedPeers) == 0 {
+			return nil, err
+		}
+	}
+    return &NodeKnows{id: recvPeer.ID, knows: returnedPeers}, nil
+}
+
 // CrawlPeer crawls a specific ID
 // :param askPeer: Multiaddr for remote node
-// TODO name a bit irritating?
+// TODO name a bit irritating
 func (w *Worker) CrawlPeer(askPeer peer.AddrInfo) {
 	// Strip addresses we cannot connect to anyways
 	recvPeer := stripLocalAddrs(askPeer)
