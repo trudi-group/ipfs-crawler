@@ -19,6 +19,7 @@ import (
 	// "errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/libp2p/go-libp2p-core/protocol"
+    "github.com/spf13/viper"
 
 
 
@@ -28,19 +29,48 @@ const (
 	// Protocol String of KAD
 	ProtocolDHT protocol.ID = "/ipfs/kad/1.0.0"
     // Upper limit at which we stop returning the flowcontrol token.
-	upperRateLimit = 0.9
+	// upperRateLimit = 0.9
     // Lower limit at which we start growing the flowcontrol token bucket again.
-	lowerRateLimit = 0.5
+	// lowerRateLimit = 0.5
     // minRequest is the minimal number of live request, to avoid the token bucket to shut down.
-	minRequest = 10
+	// minRequest = 10
 	// The rate at which we create flowcontrol tokens
-	rate = 500
+	// rate = 500
 	// Maximum connection backoff time in milliseconds
-	maxBackOffTime = 500
+	// maxBackOffTime = 500
 	// Timeout to the basicHost's Connect() function
-	connectTimeout = 45 * time.Second
+	// connectTimeout = 45 * time.Second
 
 )
+
+func init() {
+    // Set defaults
+    viper.SetDefault("upperRateLimit", 0.9)
+    viper.SetDefault("lowerRateLimit", 0.5)
+    viper.SetDefault("minRequest", 10)
+    viper.SetDefault("rate", 500)
+    viper.SetDefault("maxBackOffTime", 500)
+    viper.SetDefault("connectTimeout", 45 * time.Second)
+}
+
+type CrawlerConfig struct {
+    UpperRateLimit float64
+    LowerRateLimit float64
+    MinRequest int
+    Rate int
+    MaxBackOffTime int
+    ConnectTimeout time.Duration
+}
+
+func configure() CrawlerConfig {
+    var config CrawlerConfig
+    err := viper.Unmarshal(&config)
+	if err != nil {
+		panic(err)
+	}
+    return config
+}
+
 // PrefixLimitError signals that we have exhausted the bucket space.
 type PrefixLimitError struct {
 	msg string
@@ -72,6 +102,7 @@ type Worker struct {
 	crawlErrors int
 	crawlAttempts int
 	resultChannel chan peer.AddrInfo
+    config CrawlerConfig
 }
 
 // NodeKnows tores the collected adresses for a given ID
@@ -89,6 +120,7 @@ type NodeKnows struct {
 // :return: fully initialized worker
 func NewWorker(cm *CrawlManager, id int, ctx context.Context) *Worker {
 	// ToDo: Not sure if we should 1) derive a new context 2) store the context
+	config := configure()
 	ctx, cancel := context.WithCancel(ctx)
 	w := &Worker{
 		id: id,
@@ -97,10 +129,11 @@ func NewWorker(cm *CrawlManager, id int, ctx context.Context) *Worker {
 		ctx: ctx,
 		cancelFunc: cancel,
 		resultChannel: make(chan peer.AddrInfo, 1000),
-        rateLimit:  make(chan bool, rate),
+        rateLimit:  make(chan bool, config.Rate),
+        config: config,
 		}
     // Initialize token bucket
-    for index := 0;  index < rate; index++ {
+    for index := 0;  index < config.Rate; index++ {
         w.rateLimit <- true
     }
 
@@ -161,7 +194,7 @@ func (w *Worker) CrawlPeer(askPeer peer.AddrInfo) {
 
 	// If we're past this point, there are actually addresses we can try to connect to.
 
-	if len(w.rateLimit) == 0 && float64(len(w.cm.InputQueue)) < lowerRateLimit * float64(w.cm.GetQueueSize()) {
+	if len(w.rateLimit) == 0 && float64(len(w.cm.InputQueue)) < w.config.LowerRateLimit * float64(w.cm.GetQueueSize()) {
 		select {
 		case w.rateLimit <- true:
 			// grow rateLimit if inputQueue is not too full
@@ -183,19 +216,19 @@ func (w *Worker) CrawlPeer(askPeer peer.AddrInfo) {
 func (w *Worker) ConnectAndFetchNeighbors(recvPeer peer.AddrInfo) {
     // defer function for rate limiting. Token is is not returned if inputQueue is too full.
 	defer func () {
-		if float64(len(w.cm.InputQueue)) < upperRateLimit * float64(w.cm.GetQueueSize()) || len(w.rateLimit) < minRequest {
+		if float64(len(w.cm.InputQueue)) < w.config.UpperRateLimit * float64(w.cm.GetQueueSize()) || len(w.rateLimit) < w.config.MinRequest {
 			w.rateLimit <- true
 		}
 	}()
     // Sleep for a random time to avoid dial backoff errors
-	time.Sleep(time.Duration(rand.Intn(maxBackOffTime)) * time.Millisecond)
+	time.Sleep(time.Duration(rand.Intn(w.config.MaxBackOffTime)) * time.Millisecond)
 
 	// Roadmap:
 	// 1) Connect to peer
 	// 2) Start a new stream = subprotocol exchange
 	// 3) Send FindNode(s)
 	// 4) Parse response, add to Queue
-	ctx, cancel := context.WithTimeout(w.ctx, connectTimeout)
+	ctx, cancel := context.WithTimeout(w.ctx, w.config.ConnectTimeout)
 	defer cancel()
 	// Connect() adheres to the context deadline and gives and error when the context deadline expired
 	// ToDo: It seems that this is ignored when the context previously expired
