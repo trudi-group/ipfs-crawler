@@ -59,7 +59,7 @@ type CrawlManager struct {
 	useCache bool
 	queueSize int
 	InputQueue chan peer.AddrInfo
-	onlineQueue chan peer.AddrInfo
+	onlineQueue chan AddrInfoAndAgent
 	workQueue chan peer.AddrInfo
 	knowQueue chan *NodeKnows
 	// We use this map not only to store whether we crawled a node but also to store a nodes multiaddress
@@ -74,12 +74,19 @@ type CrawlManager struct {
 	ph *PreImageHandler
 	errorChan chan error
 	errorMap map[string]int
+    agentVersionMap map[peer.ID]string
     config CrawlManagerConfig
 }
 // PreImageHandler contains the precalculated hashes.
 type PreImageHandler struct {
 	preImages map[string]string
 }
+// AddrInfoAndAgent combines an Info struct about a peer with its reported agent version
+type AddrInfoAndAgent struct {
+	ainfo peer.AddrInfo
+	agentVersion string
+}
+
 // NewCrawlManager creates a new crawlManager and loads the precalculated hashes.
 // :param queueSize: size of the various message channels
 func NewCrawlManager(queueSize int, cacheFile string, useCache bool) *CrawlManager {
@@ -89,7 +96,7 @@ func NewCrawlManager(queueSize int, cacheFile string, useCache bool) *CrawlManag
 		useCache: useCache,
 		InputQueue: make(chan peer.AddrInfo, queueSize),
 		workQueue: make(chan peer.AddrInfo, queueSize),
-		onlineQueue: make(chan peer.AddrInfo, queueSize),
+		onlineQueue: make(chan AddrInfoAndAgent, queueSize),
 		knowQueue: make(chan *NodeKnows, queueSize),
 		crawled: make(map[peer.ID][]ma.Multiaddr),
 		online: make(map[peer.ID]bool),
@@ -99,6 +106,7 @@ func NewCrawlManager(queueSize int, cacheFile string, useCache bool) *CrawlManag
 		startTime: time.Now(),
 		errorChan: make(chan error, queueSize),
 		errorMap: make(map[string]int),
+		agentVersionMap: make(map[peer.ID]string),
         config: configureCrawlerManager(),
 	}
 	ctx, _ := context.WithCancel(context.Background())
@@ -215,13 +223,15 @@ func (cm *CrawlManager) Run() {
         if len(cm.InputQueue) > int(0.95*float32(cm.GetQueueSize())) {
 					log.WithField("inputQueueLength", len(cm.InputQueue)).Debug("inputQueue getting long.")
 				}
-			case node := <-cm.onlineQueue:
+			case extendedAddrInfo := <-cm.onlineQueue:
+				node := extendedAddrInfo.ainfo
 				// A peer that we saw was online, store that
 				// First, check if we've seen the peer. This should actually never fail:
 				_, ok := cm.crawled[node.ID]
 				if !ok {
 					log.WithField("nodeID", node.ID).Panic("Crawled node but not stored in seen-map.")
 				}
+				cm.agentVersionMap[node.ID] = extendedAddrInfo.agentVersion
 				cm.online[node.ID] = true
 
 			case k := <-cm.knowQueue:
@@ -270,7 +280,8 @@ func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
 			// This works because Boolean zero-value is "false"
 			// cm.online is a map from node.ID -> bool
 			_, exists := cm.online[node]
-			fmt.Fprintf(vf, "%s;%s;%t\n", node, addrs, exists)
+			av, _ := cm.agentVersionMap[node]
+			fmt.Fprintf(vf, "%s;%s;%t;%s\n", node, addrs, exists, av)
 			// fmt.Printf("%s;%t\n", node, online)
 		}
 		vf.Sync()

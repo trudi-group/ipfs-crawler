@@ -278,8 +278,18 @@ func (w *Worker) ConnectAndFetchNeighbors(recvPeer peer.AddrInfo) {
 		}
 	}
 
+	// Returns the value (more exactly and Interface) and potentially an error
+	agentVersion, err := w.h.Peerstore().Get(recvPeer.ID, "AgentVersion")
+	extendedAInfo := AddrInfoAndAgent{
+		ainfo: recvPeer,
+	}
+	if err == nil {
+		extendedAInfo.agentVersion = agentVersion.(string)
+	}
+
+
 	// Signal that the node was online
-	w.cm.onlineQueue<-recvPeer
+	w.cm.onlineQueue<-extendedAInfo
 
 	// Add the returned peers to the inputQueue
 	for _, p := range returnedPeers {
