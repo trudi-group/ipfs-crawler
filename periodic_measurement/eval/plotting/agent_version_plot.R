@@ -14,9 +14,6 @@ inDataFile = "plot_data/agent_versions.csv"
 agentCounts = LoadDT(inDataFile, header=F)
 setnames(agentCounts, 1:3, c("ts", "version", "avgcount"))
 
-## To ease presentation, we only focus on the top clientCutOff versions
-truncatedDT = agentCounts[1:clientCutOff]
-
 ## The top clientCutOff-versions make for this many of all seen clients:
 # totalNumberOfVersions = sum(agentCounts$avgcount)
 # truncatedVersions = sum(truncatedDT$avgcount)
@@ -24,9 +21,14 @@ truncatedDT = agentCounts[1:clientCutOff]
 # print(sum(truncatedDT$avgcount)/totalNumberOfVersions)
 
 ## Reorder the versions so that the plot labels are in decreasing order
+truncatedDT = agentCounts
 truncatedDT$version = with(truncatedDT, reorder(version, -avgcount))
 
 truncatedDT$ts = as.POSIXct(truncatedDT$ts)
+
+## To ease presentation, we only focus on the top clientCutOff versions
+truncatedDT = truncatedDT[, .SD[1:clientCutOff], by="ts"]
+
 # ## Bar chart for one single crawl
 # q = ggplot(truncatedDT, aes(x="", y=avgcount, fill=version)) +
 #   geom_bar(width=1, stat="identity", color="white", position="dodge") +
