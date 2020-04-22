@@ -2,7 +2,10 @@
 
 ## master_script.sh: To be called from crontab.
 ## Invokes the crawler for 5 times and computes the eval
+echo "$(dirname $0)"
+# cd "$(dirname "$0")"
 
+exit 0
 ./crawl_times 5
 
 cd eval
