@@ -39,6 +39,7 @@ func init()  {
     viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
     viper.SetDefault("NumPreImages", 16777216)
     viper.SetDefault("WriteToFileFlag", true)
+    viper.SetDefault("JSONOutput", true)
     viper.SetDefault("CanaryFile", "configs/canary.txt")
     viper.SetDefault("Sanity",false)
 }
@@ -49,6 +50,7 @@ type CrawlManagerConfig struct {
     PreImagePath string
     NumPreImages int
     WriteToFileFlag bool
+    JSONOutput bool
     CanaryFile string
     Sanity bool
 }
@@ -165,7 +167,7 @@ func (cm *CrawlManager) shutdownAndOutput() {
 	for _, w := range cm.workers {
 		w.Stop()
 	}
-	cm.OutputVisitedPeers(cm.config.WriteToFileFlag)
+	cm.OutputVisitedPeers(cm.config.WriteToFileFlag, cm.config.JSONOutput)
 
 }
 
@@ -263,17 +265,30 @@ func (cm *CrawlManager) Run() {
 }
 // OutputVisitedPeers writes the learned information about IPFS to a file.
 // :param toFile: indicates whether to create a file
-func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
+func (cm *CrawlManager) OutputVisitedPeers(toFile bool, toJSON bool) {
 	// Write to file...
 	start := cm.startTime.Format(cm.config.FilenameTimeFormat)
 	end := time.Now().Format(cm.config.FilenameTimeFormat)
 	if toFile {
-		vf, err := os.OpenFile(cm.config.OutPath + cm.generateFilename("visitedPeers", ".csv", start, end), os.O_CREATE | os.O_RDWR, 0666)
+		var fname string
+		if toJSON {
+			fname = cm.generateFilename("visitedPeers", ".json", start, end)
+			fmt.Println(fname)
+		} else {
+			fname = cm.generateFilename("visitedPeers", ".csv", start, end)
+		}
+		vf, err := os.OpenFile(cm.config.OutPath + fname, os.O_CREATE | os.O_RDWR, 0666)
 		if os.IsNotExist(err) {
 			os.Mkdir(cm.config.OutPath, 0777)
 		} else if err != nil {
 			panic(err)
 		}
+
+		coutput := &CrawlOutput{
+			StartDate: start,
+			EndDate: end,
+		}
+		coutput.Nodes = make([]*CrawledNode, 0, len(cm.crawled))
 
 		// cm.crawled is a map from node.ID -> []multiaddr
 		for node, addrs := range cm.crawled {
@@ -281,8 +296,18 @@ func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
 			// cm.online is a map from node.ID -> bool
 			_, exists := cm.online[node]
 			av, _ := cm.agentVersionMap[node]
-			fmt.Fprintf(vf, "%s;%s;%t;%s\n", node, addrs, exists, av)
-			// fmt.Printf("%s;%t\n", node, online)
+
+			coutput.Nodes = append(coutput.Nodes, &CrawledNode{node, addrs, exists, av})
+
+			if !toJSON {
+				fmt.Fprintf(vf, "%s;%s;%t;%s\n", node, addrs, exists, av)
+			}
+		}
+		if toJSON {
+			err := json.NewEncoder(vf).Encode(coutput)
+			if err != nil {
+				log.WithField("err", err).Error("Could not encode JSON and/or write to output file.")
+			}
 		}
 		vf.Sync()
 		vf.Close()
@@ -318,8 +343,21 @@ func (cm *CrawlManager) OutputVisitedPeers(toFile bool) {
 	// fmt.Println("#############################")
 }
 
+type CrawlOutput struct {
+	StartDate string `json:"start_timestamp"`
+	EndDate string `json:"end_timestamp"`
+	Nodes []*CrawledNode `json:"found_nodes`
+}
+
+type CrawledNode struct {
+	NID peer.ID `json:"NodeID"`
+	MultiAddrs[] ma.Multiaddr `json:multiaddrs`
+	Reachable bool `json:"reachable"`
+	AgentVersion string `json:"agent_version"`
+}
+
 func (cm *CrawlManager) generateFilename(prefix, suffix, start, end string) string {
-	return prefix + "_" + start + "_" + end + ".csv"
+	return prefix + "_" + start + "_" + end + suffix
 }
 
 func AddrInfoToID(addrs []*peer.AddrInfo) []peer.ID {
