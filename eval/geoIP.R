@@ -7,6 +7,15 @@ outDataFile = "plot_data/geoIP_per_crawl.csv"
 processedPeerFiles = "../output_data_crawls/geoIP_processing/"
 
 procCrawls = list.files(processedPeerFiles, pattern=visitedPattern)
+###
+i = 1
+dat = LoadDT(paste(processedPeerFiles, procCrawls[i], sep=""), header=T)
+numdat = LoadDT(FullPath(crawls[i]))
+
+length(unique(dat$nodeid))
+length(unique(numdat$V1))
+
+setdiff(numdat$V1, dat$nodeid)
 
 CountsPerTS = pblapply(procCrawls, function(pc) {
   fdate = extractStartDate(pc)
@@ -32,7 +41,7 @@ CountsPerTS = pblapply(procCrawls, function(pc) {
   ## give the result back to data.table
   ccTmp = countryCount[countryCount[, .I[count == max(count)], by=c("nodeid")][,V1]]
   ## We resolve duplicates by just taking the first value
-  ccTmp = ccTmp[ccTmp[, .I[1], .(nodeid, country, online)][,V1]]
+  ccTmp = ccTmp[ccTmp[, .I[1], .(nodeid, online)][,V1]]
   
   tabAll = data.table(table(ccTmp$country))
   tabAll = rbindlist(list(tabAll, data.table(V1 = c("LocalIP"), N = c(numLocalIPs))))
