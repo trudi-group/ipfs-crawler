@@ -6,6 +6,8 @@ import (
 
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
+	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
+	dht "github.com/scriptkitty/go-libp2p-kad-dht"
 
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
@@ -17,7 +19,7 @@ import (
 	"github.com/libp2p/go-msgio"
 
 	// "errors"
-	// "github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -25,7 +27,7 @@ import (
 // Variables for flowcontrol.
 const (
 	// Protocol String of KAD
-	// ProtocolDHT protocol.ID = "/ipfs/kad/1.0.0"
+	ProtocolDHT protocol.ID = "/ipfs/kad/1.0.0"
 	// Upper limit at which we stop returning the flowcontrol token.
 	// upperRateLimit = 0.9
 	// Lower limit at which we start growing the flowcontrol token bucket again.
@@ -51,33 +53,33 @@ func init() {
 	viper.SetDefault("connectTimeout", 45*time.Second)
 }
 
-// type CrawlerConfig struct {
-// 	UpperRateLimit float64
-// 	LowerRateLimit float64
-// 	MinRequest     int
-// 	Rate           int
-// 	MaxBackOffTime int
-// 	ConnectTimeout time.Duration
-// }
-//
-// func configure() CrawlerConfig {
-// 	var config CrawlerConfig
-// 	err := viper.Unmarshal(&config)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return config
-// }
-//
-// // PrefixLimitError signals that we have exhausted the bucket space.
-// type PrefixLimitError struct {
-// 	msg  string
-// 	peer peer.AddrInfo
-// }
-//
-// func (e *PrefixLimitError) Error() string {
-// 	return e.msg
-// }
+type CrawlerConfig struct {
+	UpperRateLimit float64
+	LowerRateLimit float64
+	MinRequest     int
+	Rate           int
+	MaxBackOffTime int
+	ConnectTimeout time.Duration
+}
+
+func configure() CrawlerConfig {
+	var config CrawlerConfig
+	err := viper.Unmarshal(&config)
+	if err != nil {
+		panic(err)
+	}
+	return config
+}
+
+// PrefixLimitError signals that we have exhausted the bucket space.
+type PrefixLimitError struct {
+	msg  string
+	peer peer.AddrInfo
+}
+
+func (e *PrefixLimitError) Error() string {
+	return e.msg
+}
 //
 // // LocalAddrsOnlyError is an error to indicate that the multiadress only contains local addresses.
 // type LocalAddrsOnlyError struct {
@@ -106,10 +108,10 @@ type IPFSWorker struct {
 }
 
 // NodeKnows tores the collected adresses for a given ID
-// type NodeKnows struct {
-// 	id    peer.ID
-// 	knows []*peer.AddrInfo
-// }
+type NodeKnows struct {
+	id    peer.ID
+	knows []*peer.AddrInfo
+}
 
 // NewWorker initiates a new instance of a crawl worker.
 // Initalizes the token bucket used for rate limiting and the necessary RSA keys for IPFS
@@ -392,4 +394,54 @@ func (w *IPFSWorker) Stop() {
 	}).Info("IPFSWorker finished with stats.")
 	w.cancelFunc()
 	w.quitMsg <- true
+}
+// SendFindNode probes the remote node for neighborhood nodes.
+// :param ctx: controlling context
+// :param recvReader: Reader/parser for the responses
+// :param target: the prefix we are interested in
+// :param remotePeerStream: Connection to remote node
+// :return: list of received peer adresses
+func SendFindNode(ctx context.Context, recvReader msgio.Reader, target []byte, remotePeerStream network.Stream) ([]*peer.AddrInfo, error) {
+	// Send the packet to the target host and wait for the response or context timeout
+	err := dht.WriteMsg(remotePeerStream, pb.NewMessage(pb.Message_FIND_NODE, target, 0))
+	if err != nil {
+		// This can fail, since we're sending multiple packets on the same stream.
+		// If it does, for now we just ignore the problem and return the error.
+		// The higher levels should deal with this
+		log.WithField("err", err).Warn("Sending findnode failed.")
+		return nil, err
+	}
+
+	// Receive the response and handle it accordingly
+	var response pb.Message
+
+	// The ReadMsg() function is synchronous, so we use this little async wrapper, s.t. we can adhere to the context timeout
+	errChan := make(chan error, 1)
+	responseChan := make(chan []byte, 1)
+
+	go func() {
+		msgbytes, err := recvReader.ReadMsg()
+		if err != nil {
+			errChan<-err
+		} else {
+			responseChan<-msgbytes
+		}
+	}()
+
+	select {
+		case <-ctx.Done():
+			// The context timed out, abort sendin/receiving and return.
+			return nil, ctx.Err()
+
+		case msg :=<-responseChan:
+			// Parse the request and then signal that the msgbytes-buffer can be used again
+			response.Unmarshal(msg)
+			// ToDo: Is this copied or just by reference? In a good language that would be more clear...
+			recvReader.ReleaseMsg(msg)
+			return pb.PBPeersToPeerInfos(response.GetCloserPeers()), nil
+
+		case err:=<-errChan:
+			return nil, err
+
+	}
 }

@@ -7,9 +7,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/signal"
+	// "os/signal"
 	"strings"
-	"time"
+	"context"
 
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	log "github.com/sirupsen/logrus"
@@ -32,6 +32,8 @@ type MainConfig struct {
 	UseCache      bool
     // File where the nodes between crawls are cached (if caching is enabled)
 	CacheFile     string
+	 // Output Folder
+	 Outpath string
 }
 
 const (
@@ -141,13 +143,13 @@ func main() {
 	}
 
 	// Second, check if the pre-image file exists
-	cm := crawlLib.NewCrawlManager(config.QueueSize, config.CacheFile, config.UseCache)
+	cm := crawlLib.NewCrawlManagerV2(config.QueueSize)
 	log.WithField("numberOfWorkers", config.NumWorker).Info("Creating workers...")
-	for i := 0; i < config.NumWorker; i++ {
-		cm.CreateAndAddWorker()
-	}
-
-	go cm.Run()
+	// for i := 0; i < config.NumWorker; i++ {
+	// 	cm.CreateAndAddWorker()
+	// }
+	worker := crawlLib.NewIPFSWorker(cm, 0, context.Background())
+	cm.AddWorker(worker)
 
 	bootstrappeers, err := LoadBootstrapList(config.BootstrapFile)
 	if err != nil {
@@ -160,29 +162,38 @@ func main() {
 			bootstrappeers = append(bootstrappeers, cachedNodes...)
 		}
 	}
-
-	for _, p := range bootstrappeers {
-		log.WithField("addr", p).Debug("Adding bootstrap peer to crawl queue.")
-		// fmt.Printf("[%s] Adding bootstrap peer to crawl queue: %s\n", Timestamp(), ainfo)
-		cm.InputQueue <- *p
+	report := cm.CrawlNetwork(bootstrappeers)
+	startStamp := report.StartDate
+	endStamp := report.EndDate
+	crawlLib.ReportToFile(report, config.Outpath + fmt.Sprintf("visitedPeers_%s_%s.json", startStamp, endStamp))
+	crawlLib.WritePeergraph(report, config.Outpath + fmt.Sprintf("peerGraph_%s_%s.csv", startStamp, endStamp))
+	if config.UseCache{
+		crawlLib.SaveNodeCache(report, config.CacheFile)
+		log.WithField("File", config.CacheFile).Info("Online nodes saved in cache")
 	}
 
+	// for _, p := range bootstrappeers {
+	// 	log.WithField("addr", p).Debug("Adding bootstrap peer to crawl queue.")
+	// 	// fmt.Printf("[%s] Adding bootstrap peer to crawl queue: %s\n", Timestamp(), ainfo)
+	// 	cm.InputQueue <- *p
+	// }
+
 	// Catch strg+c
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		for sig := range c {
-			fmt.Println(sig)
-			ShutDown(cm)
-		}
-	}()
-	exit := <-cm.Done
+	// c := make(chan os.Signal, 1)
+	// signal.Notify(c, os.Interrupt)
+	// go func() {
+	// 	for sig := range c {
+	// 		fmt.Println(sig)
+	// 		// ShutDown(cm)
+	// 	}
+	// }()
+	// exit := <-cm.Done
 	// Fuck you go compiler
-	_ = exit
-	log.WithFields(log.Fields{
-		"inputQueueLength": cm.GetInputQueueLen(),
-		"workQueueLength":  cm.GetWorkQueueLen(),
-	}).Info("Exit successful.")
+	// _ = exit
+	// log.WithFields(log.Fields{
+	// 	"inputQueueLength": cm.GetInputQueueLen(),
+	// 	"workQueueLength":  cm.GetWorkQueueLen(),
+	// }).Info("Exit successful.")
 	os.Exit(0)
 }
 
@@ -203,18 +214,6 @@ func setupViper() MainConfig {
 		panic(err)
 	}
 	return config
-}
-
-func ShutDown(cm *crawlLib.CrawlManager) {
-	cm.Stop()
-	time.Sleep(10 * time.Second)
-	// fmt.Println("======================")
-	// cm.OutputVisitedPeers(true)
-	log.WithFields(log.Fields{
-		"inputQueueLength": cm.GetInputQueueLen(),
-		"workQueueLength":  cm.GetWorkQueueLen(),
-	}).Info("Exit successful.")
-	os.Exit(0)
 }
 
 // Parses a file containing bootstrap peers. It assumes a text file with a multiaddress on each line.

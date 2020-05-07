@@ -6,6 +6,7 @@ import(
   "os"
   log "github.com/sirupsen/logrus"
   "fmt"
+  "io/ioutil"
 )
 type CrawlOutputJSON struct {
   StartDate string `json:"start_timestamp"`
@@ -57,4 +58,45 @@ func WritePeergraph(report *CrawlOutput, path string)  {
     }
 
   }
+}
+
+// RestoreNodeCache restores a previously cached file of nodes.
+func RestoreNodeCache(path string) ([]*peer.AddrInfo, error)  {
+    nodedata, err := ioutil.ReadFile(path)
+    if err != nil {
+        log.WithField("err", err).Warning("Node caching is enabled, but we couldn't read from the cache file. " +
+        	"Maybe this is the first run? Continuing without node cache this time.")
+        return nil, err
+    }
+    var result []peer.AddrInfo
+    err = json.Unmarshal(nodedata, &result)
+    if err != nil {
+        log.WithField("err", err).Error("Error unmarshalling from cacheFile.")
+        return nil, err
+    }
+    var out []*peer.AddrInfo
+    // switch to pointers to fullfil requirements of main.go... because this is stupid
+    for _, val := range result{
+        out = append(out, &val)
+    }
+    return out, nil
+}
+func SaveNodeCache(result *CrawlOutput, cacheFile string)  {
+    nodesSave := []peer.AddrInfo{}
+    for _, node :=  range result.Nodes {
+        if node.Reachable {
+            recreated := peer.AddrInfo{
+                ID: node.NID,
+                Addrs: node.MultiAddrs,
+            }
+            nodesSave = append(nodesSave, recreated)
+        }
+    }
+    marshalled, _ := json.Marshal(nodesSave)
+    err := ioutil.WriteFile(cacheFile, marshalled, 0644)
+    if err != nil {
+        log.WithField("err", err).Error("Error writting to cacheFile.")
+        return
+    }
+
 }
