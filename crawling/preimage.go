@@ -11,7 +11,7 @@ import(
 
 
 type PreImageHandler struct {
-	preImages map[string]string
+	PreImages map[string]string
 }
 
 func LoadPreimages(path string, mapsize int) (map[string]string, error) {
@@ -27,6 +27,7 @@ func LoadPreimages(path string, mapsize int) (map[string]string, error) {
 	scanner.Scan()
 	for scanner.Scan() {
 		line := scanner.Text()
+    fmt.Println(line)
 		splitLine := strings.Split(line, ";")
 		preImages[splitLine[0]] = splitLine[1]
 	}
@@ -84,7 +85,7 @@ func (ph *PreImageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 		s += "00000000"
 	}
 	// Lookup the preimage in our "database"
-	unhashed, err := hex.DecodeString(ph.preImages[s])
+	unhashed, err := hex.DecodeString(ph.PreImages[s])
 	if err != nil {
 		panic(err)
 	}

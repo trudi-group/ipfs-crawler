@@ -95,7 +95,7 @@ func (e *PrefixLimitError) Error() string {
 type IPFSWorker struct {
 	id        int
 	rateLimit chan bool
-	cm        *CrawlManagerV2
+	ph        *PreImageHandler
 	quitMsg   chan bool
 	h         host.Host
 	ctx       context.Context // ToDo: Find a way around storing this context explicitly, handle it in the loop maybe?
@@ -120,13 +120,13 @@ type NodeKnows struct {
 // :param id: ID of the new worker
 // :param ctx: context that the new worker will be attached to
 // :return: fully initialized worker
-func NewIPFSWorker(cm *CrawlManagerV2, id int, ctx context.Context) *IPFSWorker {
+func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	// ToDo: Not sure if we should 1) derive a new context 2) store the context
 	config := configure()
 	ctx, cancel := context.WithCancel(ctx)
 	w := &IPFSWorker{
 		id:            id,
-		cm:            cm,
+		ph:            nil,
 		quitMsg:       make(chan bool),
 		ctx:           ctx,
 		cancelFunc:    cancel,
@@ -202,7 +202,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	defer dhtStream.Close()
 
 	// returnedPeers := GetRandomNeighbors(dhtStream)
-	returnedPeers, err := w.FullNeighborCrawl(ctx, dhtStream, recvPeer, w.cm.ph)
+	returnedPeers, err := w.FullNeighborCrawl(ctx, dhtStream, recvPeer, w.ph)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"IPFSWorkerID": w.id,
@@ -216,6 +216,10 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 		}
 	}
 	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers}, nil
+}
+
+func (w *IPFSWorker) AddPreimages(handler *PreImageHandler)  {
+	w.ph = handler
 }
 
 // CrawlPeer crawls a specific ID

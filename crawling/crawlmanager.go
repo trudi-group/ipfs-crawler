@@ -4,8 +4,6 @@ import (
 	// utils "ipfs-crawler/common"
 	// "fmt"
 	// "context"
-	utils "ipfs-crawler/common"
-	"os"
 	"time"
 
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -40,8 +38,6 @@ func init() {
 type CrawlManagerConfig struct {
     FilenameTimeFormat string
     OutPath string
-    PreImagePath string
-    NumPreImages int
     WriteToFileFlag bool
     CanaryFile string
     Sanity bool
@@ -102,7 +98,6 @@ type CrawlManagerV2 struct {
 	workers []*CrawlerWorker
 	// ctx context.Context
 	startTime time.Time
-	ph        *PreImageHandler //TODO: Move to worker in the longterm
 	// errorChan chan error
 	// errorMap map[string]int
 	config CrawlManagerConfig
@@ -124,25 +119,8 @@ func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
 	// for i := 1; i <= concurrentRequests; i++ {
 	// 	cm.tokenBucket <- true
 	// }
-	// FIXME: can be removed soon from here
 	config := configureCrawlerManager()
-	log.Info("Loading pre-images...")
-	// log.WithField("numberOfPreImages", numPreImages).Info("Loading pre-images...")
-	preImages, err := LoadPreimages(config.PreImagePath, config.NumPreImages)
-	if err != nil {
-		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
-		if !utils.AskYesNo() {
-			os.Exit(0)
-		}
-	}
-	log.WithField("numPreImages", len(preImages)).Info("Successfully loaded pre-images.")
-
-	ph := &PreImageHandler{
-		preImages: preImages,
-	}
-	cm.ph = ph
-	cm.config = configureCrawlerManager()
-	// FIXME: to here
+	cm.config = config
 	return cm
 }
 
