@@ -39,7 +39,7 @@ source("includes.R")
 crawls = list.files(path=crawlDir, pattern=visitedPattern)
 numNodesDT = rbindlist(pblapply(crawls, NumNodesSingleCrawl))
 
-meltedDT = melt(numNodesDT, id=c("ts"))
+meltedDT = data.table::melt(numNodesDT, id=c("ts"))
 
 ################## COMPUTATION FOR .TEX VARIABLES ##################
 

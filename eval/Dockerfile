@@ -13,9 +13,9 @@ RUN apt-get update -q && apt-get install -qy \
 	r-base \
 	python3-pip
 RUN Rscript -e "install.packages(c(\"data.table\", \"reshape2\", \"ggplot2\", \"scales\", \
-             \"tikzDevice\", \"stringr\", \"pbapply\", \"igraph\", \"xtable\"), repos=\"http://cran.us.r-project.org\")"
+             \"tikzDevice\", \"stringr\", \"pbapply\", \"igraph\", \"xtable\", "tidyr", "jsonlite"), repos=\"http://cran.us.r-project.org\")"
 
-RUN pip3 install geoip2 numpy
+RUN pip3 install geoip2 numpy IP2Location
 
 COPY . /eval
 WORKDIR /eval
