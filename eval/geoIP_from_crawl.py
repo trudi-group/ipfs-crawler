@@ -67,7 +67,6 @@ class IP2LocationResolver(GeoIPResolver):
 	def __init__(self, dbPath):
 		print("Warning: Autonomous system lookup not implemented yet for IP2Location!")
 		self.dbPath = dbPath
-		self.IPv4Resolver = IP2Location.IP2Location(os.path.join(self.dbPath, "IP2LOCATION-LITE-DB1.BIN"), "SHARED_MEMORY")
 		self.IPv6Resolver = IP2Location.IP2Location(os.path.join(self.dbPath, "IP2LOCATION-LITE-DB1.IPV6.BIN"), "SHARED_MEMORY")
 
 	def resolveIP(self, ip):
@@ -78,11 +77,7 @@ class IP2LocationResolver(GeoIPResolver):
 			tmpDict["ASNo"] = "NA"
 			tmpDict["ASName"] = "NA"
 		else:
-			resolv = None
-			if ipaddress.ip_address(ip).version == 4:
-				resolv = self.IPv4Resolver
-			else:
-				resolv = self.IPv6Resolver
+			resolv = self.IPv6Resolver
 
 			resp = resolv.get_all(ip)
 			tmpDict["IP"] = ip
@@ -140,8 +135,8 @@ if __name__ == "__main__":
 	
 	# onlyOnlineNodes = False
 	geoIPPath = "geoipDBs/"
-	resolver = MaxMindResolver(geoIPPath)
-	# resolver = IP2LocationResolver(geoIPPath)
+	# resolver = MaxMindResolver(geoIPPath)
+	resolver = IP2LocationResolver(geoIPPath)
 
 	i = 0
 	for crawlFile in peerFiles:
