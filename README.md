@@ -72,25 +72,25 @@ The dateformat is dd-mm-yy--H:M:S, where hours are in 24h format. For example, a
 
 ```visitedPeers``` contains a json structure with meta information about the crawl as well as each found node.
 Each node entry corresponds to exactly one node on the network and has the following fields:
-```json
+```yaml
 	{
-		NodeID: <multihash of the node id>,
-		MultiAddrs: [<multiaddress_1>, <multiaddress_2>, ...],
-		reachable: <whether our crawler could connect to the peer>,
-		agent_version: <if a connection was successful, the agent version string>
+		"NodeID": "<multihash of the node id>",
+		"MultiAddrs": ["<multiaddress_1>", "<multiaddress_2>", "<multiaddress_n>"],
+		"reachable": "<whether our crawler could connect to the peer>",
+		"agent_version": "<if a connection was successful, the agent version string>"
 	}
 ```
 The NodeID is a [multihash](https://github.com/multiformats/multihash), the addresses a peer advertises are [multiaddresses](https://github.com/multiformats/multiaddr).
 ```reachable``` is true/false and indicates, whether the respective node could be reached by the crawler or not. Note that the crawler will try to connect to *all* multiaddresses that it found in the DHT for a given peer.
 ```agent_version``` is simply the agent version string the peer provides when connecting to it.
 Data example:
-```json
+```yaml
 	{
 		"NodeID": "QmdGQGa1oJSqNekVinX3Vym4wXgwTnNbGHcW564pkkQzv8",
-      	"MultiAddrs": [
-	        "/ip4/192.168.1.3/tcp/4001",
-	        "/ip6/::1/tcp/4001",
-	        "/ip4/127.0.0.1/tcp/4001"
+      		"MultiAddrs": [
+	        	"/ip4/192.168.1.3/tcp/4001",
+	        	"/ip6/::1/tcp/4001",
+	        	"/ip4/127.0.0.1/tcp/4001"
       	],
       	"reachable": true,
       	"agent_version": "go-ipfs/0.4.20/"
