@@ -148,7 +148,7 @@ func main() {
 	// for i := 0; i < config.NumWorker; i++ {
 	// 	cm.CreateAndAddWorker()
 	// }
-	worker := crawlLib.NewIPFSWorker(cm, 0, context.Background())
+	worker := crawlLib.NewIPFSWorker(0, context.Background())
 	cm.AddWorker(worker)
 
 	bootstrappeers, err := LoadBootstrapList(config.BootstrapFile)
