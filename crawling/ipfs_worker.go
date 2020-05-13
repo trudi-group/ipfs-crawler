@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	utils "ipfs-crawler/common"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
@@ -12,6 +13,7 @@ import (
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
 	"time"
+	"os"
 
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -51,6 +53,8 @@ func init() {
 	viper.SetDefault("rate", 500)
 	viper.SetDefault("maxBackOffTime", 500)
 	viper.SetDefault("connectTimeout", 45*time.Second)
+	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
+	viper.SetDefault("NumPreImages", 16777216)
 }
 
 type CrawlerConfig struct {
@@ -60,6 +64,8 @@ type CrawlerConfig struct {
 	Rate           int
 	MaxBackOffTime int
 	ConnectTimeout time.Duration
+	PreImagePath string
+    NumPreImages int
 }
 
 func configure() CrawlerConfig {
@@ -147,6 +153,18 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		panic(err)
 	}
 	w.h = h
+
+	preimages, err := LoadPreimages(config.PreImagePath, config.NumPreImages)
+	if err != nil {
+		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
+		if !utils.AskYesNo() {
+			os.Exit(0)
+		}
+	}
+
+	w.ph = &PreImageHandler{
+		PreImages: preimages,
+	}
 
 	return w
 }

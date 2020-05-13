@@ -27,8 +27,6 @@ func init() {
 	// TODO: sort out necessary defaults
 	viper.SetDefault("FilenameTimeFormat", "02-01-06--15:04:05")
 	viper.SetDefault("OutPath", "output_data_crawls/")
-	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
-	viper.SetDefault("NumPreImages", 16777216)
 	viper.SetDefault("WriteToFileFlag", true)
 	viper.SetDefault("CanaryFile", "configs/canary.txt")
 	viper.SetDefault("Sanity", false)
@@ -144,7 +142,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootsstraps []*peer.AddrInfo) *CrawlOutpu
 	log.Debug("Adding bootsstraps")
 	cm.toCrawl = append(cm.toCrawl, bootsstraps...)
 	// idleTimer := time.NewTimer(1 * time.Minute)
-	log.Debug("Going into loop")
+	log.Trace("Going into loop")
 	for {
 		// check if we can break the loop
 		if len(cm.tokenBucket) == 0 &&
