@@ -11,7 +11,7 @@ minrequest: 10 # Minimum numbers of connections at all times
 numpreimages: 16777216 # Number of preimages
 numworker: 1 # Number of Workers
 outpath: output_data_crawls/ # Output path of written output
-preimagepath: precomputed_hashes/preimages.csv # Path to preimages
+preimagepath: precomputed_hashes/preimages.csv.zst # Path to preimages
 queuesize: 64384 # Size of the queue
 rate: 500 # Max rate for connection token bucket
 sanity: false # Bool for activating sanity checks
