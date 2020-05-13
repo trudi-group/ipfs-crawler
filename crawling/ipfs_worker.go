@@ -28,8 +28,6 @@ import (
 
 // Variables for flowcontrol.
 const (
-	// Protocol String of KAD
-	ProtocolDHT protocol.ID = "/ipfs/kad/1.0.0"
 	// Upper limit at which we stop returning the flowcontrol token.
 	// upperRateLimit = 0.9
 	// Lower limit at which we start growing the flowcontrol token bucket again.
@@ -44,6 +42,11 @@ const (
 	// connectTimeout = 45 * time.Second
 
 )
+
+var ProtocolStrings []protocol.ID = []protocol.ID{
+	"/ipfs/kad/1.0.0",
+	"/ipfs/kad/2.0.0",
+}
 
 func init() {
 	// Set defaults
@@ -207,7 +210,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	}
 	// Create a new stream
 	// Whereas NewStream() does not care if the context timed out.
-	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, ProtocolDHT)
+	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, ProtocolStrings...)
 	if err != nil {
 		// ToDo: Better error handling
 		log.WithFields(log.Fields{
@@ -233,6 +236,19 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 			return nil, err
 		}
 	}
+
+	// Get agent version from Peerstore
+	// Returns the value (more exactly and Interface) and potentially an error
+	var av string
+	agentVersion, err := w.h.Peerstore().Get(recvPeer.ID, "AgentVersion")
+	if err == nil {
+		av = agentVersion.(string)
+	}
+
+	// Get stream protocol. Return type is protocol.ID which is an alias for string
+	streamProtocol := dhtStream.Protocol()
+	_ = streamProtocol
+	_ = av
 	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers}, nil
 }
 
