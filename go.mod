@@ -5,6 +5,7 @@ go 1.12
 require (
 	cloud.google.com/go v0.45.1 // indirect
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
+	github.com/DataDog/zstd v1.4.5
 	github.com/btcsuite/btcd v0.0.0-20190824003749-130ea5bddde3 // indirect
 	github.com/btcsuite/goleveldb v1.0.0 // indirect
 	github.com/coreos/bbolt v1.3.3 // indirect

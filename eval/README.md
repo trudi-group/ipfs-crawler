@@ -6,12 +6,10 @@ Assume you have some ```.csv``` files from running a few crawls. In here are som
 
 ## Step-By-Step Guide Using Docker
 
-1. First, you need the [Maxmind GeoIP](https://dev.maxmind.com/geoip/geoip2/downloadable/) databases. We need the GeoLite2-Country.mmdb and GeoLite2-ASN.mmdb. We cannot provide them due to licensing reasons. See [here](https://github.com/scriptkitty/ipfs-crawler/blob/master/eval/geoipDBs/README.md) for the details.
-
-2. Check that you're in the ```ipfs-crawler/eval/``` directory and build the image with ```docker build -t scriptkitty/ipfs-crawl-eval .```.
+1. Check that you're in the ```ipfs-crawler/eval/``` directory and build the image with ```docker build -t scriptkitty/ipfs-crawl-eval .```.
 This takes some time and requires 4GB of space, since we use texlive-full to build a PDF in the end -- any contribution towards making this image smaller is appreciated, since it's not on our priority list.
 
-3. After the build, go to the parent directory (```ipfs-crawler/```) and run the container with the provided script ```./run_docker_eval.sh```.
+2. After the build, go to the parent directory (```ipfs-crawler/```) and run the container with the provided script ```./run_docker_eval.sh```.
 The script will automatically use the data in ```ipfs-crawler/output_data_crawls```, if you want to provide a custom data folder, just provide the **absolute** path:
 ```./run_docker_eval.sh /path/to/crawl/data```
 
@@ -35,11 +33,11 @@ In Ubuntu, these are the necessary packages:
 #### R packages
 
 	Rscript -e "install.packages(c(\"data.table\", \"reshape2\", \"ggplot2\", \"scales\", \
-             \"tikzDevice\", \"stringr\", \"pbapply\", \"igraph\"))"
+             \"tikzDevice\", \"stringr\", \"pbapply\", \"igraph\", "jsonlite", "tidyr"))"
 
 #### Python3 packages
 
-	pip3 install geoip2 numpy
+	pip3 install geoip2 numpy ip2location
 
 #### Run the evaluation
 

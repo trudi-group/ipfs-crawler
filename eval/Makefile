@@ -74,7 +74,7 @@ geoIP_preprocessing:
 plot_data/geoIP_per_crawl.csv:
 	Rscript geoIP.R
 
-tables/geoIP_statistics.tex:
+tables/geoIP_statistics.tex: plot_data/geoIP_per_crawl.csv
 	Rscript plotting/geoIP_plot.R
 
 ### Protocol statistics (Tab. III in the paper).

@@ -16,7 +16,8 @@ minimumCutOff = as.numeric(minimumCutOff)
 
 ## Load the data, timedurations are in seconds
 dt = LoadDT(dataPath)
-duration = as.difftime(dt$V2, unit="secs")
+setnames(dt, 2, "timediff")
+duration = as.difftime(dt$timediff, unit="secs")
 
 totalNumberOfSessions = length(duration)
 writeToEvalRounded("totalNumberOfSessions", totalNumberOfSessions)
