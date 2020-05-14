@@ -68,7 +68,7 @@ type CrawlerConfig struct {
 	MaxBackOffTime int
 	ConnectTimeout time.Duration
 	PreImagePath string
-    NumPreImages int
+  NumPreImages int
 }
 
 func configure() CrawlerConfig {
@@ -120,6 +120,7 @@ type IPFSWorker struct {
 type NodeKnows struct {
 	id    peer.ID
 	knows []*peer.AddrInfo
+	info map[string]interface{}
 }
 
 // NewWorker initiates a new instance of a crawl worker.
@@ -244,12 +245,14 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	if err == nil {
 		av = agentVersion.(string)
 	}
+	infos := make(map[string]interface{})
+	infos["version"] = av
 
 	// Get stream protocol. Return type is protocol.ID which is an alias for string
 	streamProtocol := dhtStream.Protocol()
 	_ = streamProtocol
 	_ = av
-	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers}, nil
+	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers, info: infos}, nil
 }
 
 func (w *IPFSWorker) AddPreimages(handler *PreImageHandler)  {

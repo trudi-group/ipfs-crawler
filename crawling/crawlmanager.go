@@ -91,6 +91,7 @@ type CrawlManagerV2 struct {
 	crawled map[peer.ID][]ma.Multiaddr
 	knows   map[peer.ID][]peer.ID
 	online  map[peer.ID]bool
+	info		map[peer.ID]map[string]interface{}
 	quitMsg chan bool
 	Done    chan bool
 	workers []*CrawlerWorker
@@ -110,6 +111,7 @@ func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
 		crawled:            make(map[peer.ID][]ma.Multiaddr),
 		online:             make(map[peer.ID]bool),
 		knows:              make(map[peer.ID][]peer.ID),
+		info: 							make(map[peer.ID]map[string]interface{}),
 		quitMsg:            make(chan bool),
 		Done:               make(chan bool),
 		startTime:          time.Now(),
@@ -173,6 +175,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootsstraps []*peer.AddrInfo) *CrawlOutpu
 			} else {
 				cm.online[node.id] = true
 				cm.knows[node.id] = AddrInfoToID(node.knows)
+				cm.info[node.id] = node.info // TODO: make the map merge together not overwrite each other
 				for _, p := range node.knows {
 					cm.handleInputNodes(p)
 				}
@@ -259,6 +262,13 @@ func (cm *CrawlManagerV2) createReport() *CrawlOutput {
 		} else {
 			status.Neighbours = []peer.ID{}
 		}
+		if cm.info[node]["version"] != nil {
+			status.AgentVersion = cm.info[node]["version"].(string)
+		} else {
+			status.AgentVersion = ""
+		}
+
+
 		out.Nodes[node] = &status
 	}
 	return &out
