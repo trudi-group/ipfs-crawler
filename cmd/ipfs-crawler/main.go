@@ -141,6 +141,15 @@ func main() {
 			os.Exit(0)
 		}
 	}
+	
+	// Create the directory for output data, if it does not exist
+	err = utils.CreateDirIfNotExists(config.Outpath)
+	if err != nil {
+		log.WithField("err", err).Error("Could not create output directory, crawl result will not be stored! Continue? (y/n)")
+		if !utils.AskYesNo() {
+			os.Exit(0)
+		}
+	}
 
 	// Second, check if the pre-image file exists
 	cm := crawlLib.NewCrawlManagerV2(config.QueueSize)

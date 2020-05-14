@@ -5,6 +5,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"strings"
 	"fmt"
+	"os"
 
 )
 
@@ -52,4 +53,13 @@ func containsOneResponse(inputString string, resp []string) bool {
 		}
 	}
 	return false
+}
+
+func CreateDirIfNotExists(path string) error {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		os.MkdirAll(path, 0777)
+		return nil
+	}
+	return err
 }

@@ -128,21 +128,21 @@ func (cm *CrawlManagerV2) AddWorker(w CrawlerWorker) {
 	cm.workers = append(cm.workers, &w)
 }
 
-func (cm *CrawlManagerV2) CrawlNetwork(bootsstraps []*peer.AddrInfo) *CrawlOutput {
+func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput {
 	//Plan of action
-	//1. Add bootsstraps to overflow
+	//1. Add bootstraps to overflow
 	//2. Start dispatch loop
 	//  2.1 get new nodes from ReportQueue and check if we need to crawl them, if yes: add to toCrawl
 	//  2.2 if we can dispatch a crawl: dispatch from toCrawl
 	//  2.3 break loop: idleTimer fired | (toCrawl empty && no request are out && knowQueue empty)
 	//  return data TODO: what kind of format
-	log.Info("Foobar Starting crawl...")
+	log.Info("Starting crawl...")
 	if len(cm.workers) < 1 {
 		log.Error("We cannot start a crawl without workers")
 		return nil
 	}
-	log.Debug("Adding bootsstraps")
-	cm.toCrawl = append(cm.toCrawl, bootsstraps...)
+	log.Debug("Adding bootstraps")
+	cm.toCrawl = append(cm.toCrawl, bootstraps...)
 	// idleTimer := time.NewTimer(1 * time.Minute)
 	log.Trace("Going into loop")
 	for {
