@@ -141,7 +141,7 @@ func main() {
 			os.Exit(0)
 		}
 	}
-	
+
 	// Create the directory for output data, if it does not exist
 	err = utils.CreateDirIfNotExists(config.Outpath)
 	if err != nil {
@@ -153,6 +153,8 @@ func main() {
 
 	// Second, check if the pre-image file exists
 	cm := crawlLib.NewCrawlManagerV2(config.QueueSize)
+	stats := crawlLib.NewStats()
+	stats.Register(cm)
 	log.WithField("numberOfWorkers", config.NumWorker).Info("Creating workers...")
 	// for i := 0; i < config.NumWorker; i++ {
 	// 	cm.CreateAndAddWorker()
@@ -180,6 +182,7 @@ func main() {
 		crawlLib.SaveNodeCache(report, config.CacheFile)
 		log.WithField("File", config.CacheFile).Info("Online nodes saved in cache")
 	}
+	stats.Print()
 
 	// for _, p := range bootstrappeers {
 	// 	log.WithField("addr", p).Debug("Adding bootstrap peer to crawl queue.")

@@ -19,6 +19,7 @@ import (
 	// "encoding/json"
 	// "io/ioutil"
 	"github.com/spf13/viper"
+	"github.com/AlexanderGrom/go-event"
 	// "github.com/DataDog/zstd"
 )
 
@@ -39,6 +40,37 @@ type CrawlManagerConfig struct {
     WriteToFileFlag bool
     CanaryFile string
     Sanity bool
+}
+
+type Events struct {
+	eventer event.Dispatcher
+	CRAWL_STARTED string
+	CRAWL_ENDED string
+	CON_TRY string
+	CON_SUC string
+	CON_FAIL string
+}
+
+func newEventMgr() Events {
+	manager := Events{
+		eventer: event.New(),
+		CRAWL_STARTED: "crawl_started",
+		CRAWL_ENDED: "crawl_ended",
+		CON_TRY: "con_try",
+		CON_SUC: "con_suc",
+		CON_FAIL: "con_fail",
+	}
+	return manager
+}
+
+func (e *Events) Subscribe(event string, callback func(string))  {
+	log.WithField("event", event).Debug("Subscribe to event")
+	e.eventer.On(event, callback)
+}
+
+func (e *Events) Fire(event string, msg string)  {
+	log.WithField("event", event).Debug("Propagate to event")
+	e.eventer.Go(event, msg)
 }
 
 func configureCrawlerManager() CrawlManagerConfig {
@@ -100,6 +132,7 @@ type CrawlManagerV2 struct {
 	// errorChan chan error
 	// errorMap map[string]int
 	config CrawlManagerConfig
+	Events Events
 }
 
 func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
@@ -115,6 +148,7 @@ func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
 		quitMsg:            make(chan bool),
 		Done:               make(chan bool),
 		startTime:          time.Now(),
+		Events:							newEventMgr(),
 	}
 	// for i := 1; i <= concurrentRequests; i++ {
 	// 	cm.tokenBucket <- true
@@ -137,6 +171,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 	//  2.3 break loop: idleTimer fired | (toCrawl empty && no request are out && knowQueue empty)
 	//  return data TODO: what kind of format
 	log.Info("Starting crawl...")
+	cm.Events.Fire(cm.Events.CRAWL_STARTED, "")
 	if len(cm.workers) < 1 {
 		log.Error("We cannot start a crawl without workers")
 		return nil
@@ -202,16 +237,20 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 		}
 
 	}
+	cm.Events.Fire(cm.Events.CRAWL_ENDED, "")
 	return cm.createReport()
 }
 
 func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo) {
 	worker := *cm.workers[0]
+	cm.Events.Fire(cm.Events.CON_TRY, "")
 	result, err := worker.CrawlPeer(node) //FIXME: worker selection
 	if err != nil {
 		//TODO: failed connection callback
+		cm.Events.Fire(cm.Events.CON_FAIL, "")
 	} else {
-		// TODO: successful conncetion callback
+		//successful conncetion callback
+		cm.Events.Fire(cm.Events.CON_SUC, "")
 	}
 	cm.ReportQueue <- CrawlResult{Node: result, Err: err}
 	 <- cm.tokenBucket
