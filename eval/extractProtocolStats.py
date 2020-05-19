@@ -75,7 +75,6 @@ if __name__ == "__main__":
 			for node in crawldata["Nodes"]:
 				nodeid = node["NodeID"]
 				rawMA = node["MultiAddrs"]
-				print(rawMA)
 				# We had at least one occurence of an ID without address -> ignore that
 				if len(rawMA) == 0:
 					continue

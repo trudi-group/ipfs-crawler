@@ -133,10 +133,10 @@ if __name__ == "__main__":
 	peerFiles = [x for x in allFiles if x.startswith("visited")]
 	processedFiles = os.listdir(outputDir)
 	
-	# onlyOnlineNodes = False
+	# onlyOnlineNodes = Falseprint
 	geoIPPath = "geoipDBs/"
-	# resolver = MaxMindResolver(geoIPPath)
-	resolver = IP2LocationResolver(geoIPPath)
+	resolver = MaxMindResolver(geoIPPath)
+	# resolver = IP2LocationResolver(geoIPPath)
 
 	i = 0
 	for crawlFile in peerFiles:
