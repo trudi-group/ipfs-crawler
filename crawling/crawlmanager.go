@@ -63,7 +63,7 @@ func newEventMgr() Events {
 	return manager
 }
 
-func (e *Events) Subscribe(event string, callback func(string))  {
+func (e *Events) Subscribe(event string, callback func(string)error)  {
 	log.WithField("event", event).Debug("Subscribe to event")
 	e.eventer.On(event, callback)
 }
