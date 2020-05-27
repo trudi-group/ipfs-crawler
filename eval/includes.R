@@ -1,7 +1,7 @@
 # Includes, libraries and constants
 
 packages = c("data.table", "reshape2", "ggplot2", "scales",
-             "tikzDevice", "stringr", "pbapply", "igraph", "xtable")
+             "tikzDevice", "stringr", "pbapply", "igraph", "xtable", "jsonlite", "tidyr")
 
 # shamelessly copied from Github (https://gist.github.com/stevenworthington/3178163)
 # It loads all required packages and installs them if they're not present
@@ -27,6 +27,8 @@ outPlotPath = "./figures/"
 outTabPath = "./tables/"
 visitedPattern = "visitedPeers_[:alphanum:]*"
 peerGraphPattern = "peerGraph_[:alphanum:]*"
+## In the current version of the JSON file, the node array comes at position 3
+jsonNodeContentIndex = 3
 plotWidth = 3.5
 plotHeight = 2.5
 bitmapHeight = 860
@@ -89,9 +91,15 @@ LoadBootNodesFromFile = function(filepath) {
   return(unique(nodes))
 }
 
-## LoadDT loads a single .csv into a data.table. By default it assumes there's no header.
+## LoadDT loads a single .csv or .json into a data.table. By default it assumes there's no header.
 LoadDT = function(fullpath, header=F) {
-  return(data.table(read.csv(fullpath, header = header, stringsAsFactors = F, sep=";")))
+  ## Test if it's a .json or a .csv
+  if (grepl(".csv", fullpath, fixed = T)) {
+    return(data.table(read.csv(fullpath, header = header, stringsAsFactors = F, sep=";")))
+  } else {
+    ## We skip the crawl metadata by returning the node array directly.
+    return(data.table(fromJSON(fullpath)[[jsonNodeContentIndex]]))
+  }
 }
 
 ## Load one graph from .csv into memory
