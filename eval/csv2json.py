@@ -6,8 +6,8 @@ import distutils.util
 import sys
 
 
-def readCSV(file):
-	with open(file, "r") as f:
+def readCSV(crawlDir, file):
+	with open(crawlDir + file, "r") as f:
 		lines = [l for l in f]
 		return lines
 
@@ -54,7 +54,7 @@ for pf in visitedPeersFiles:
 	fileDict["start_timestamp"] = start
 	fileDict["end_timestamp"] = end
 
-	content = readCSV(pf)
+	content = readCSV(crawlDir, pf)
 	fileDict["Nodes"] = [splitLine(line.strip("\n")) for line in content]
 
 	jsonFileName = pf.split(".")[0] + ".json"
