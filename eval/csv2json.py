@@ -3,6 +3,7 @@
 import json
 import os
 import distutils.util
+import sys
 
 
 def readCSV(file):
@@ -37,13 +38,16 @@ def extractTimeStamp(fname):
 
 	return((start, end))
 
-
-crawlDir = "./"
+if len(sys.argv) > 1:
+		crawlDir = sys.argv[1]
+else:
+	crawlDir = "../output_data_crawls/"
 
 
 visitedPeersFiles = [x for x in os.listdir(crawlDir) if x.startswith("visited") and x.endswith(".csv")]
 
 for pf in visitedPeersFiles:
+	print("Converting " + pf + "...")
 	start, end = extractTimeStamp(pf)
 	print(extractTimeStamp(pf))
 	fileDict = {}
@@ -54,5 +58,5 @@ for pf in visitedPeersFiles:
 	fileDict["Nodes"] = [splitLine(line.strip("\n")) for line in content]
 
 	jsonFileName = pf.split(".")[0] + ".json"
-	with open(jsonFileName, "w") as outfile:
+	with open(crawlDir + jsonFileName, "w") as outfile:
 		json.dump(fileDict, outfile)
