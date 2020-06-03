@@ -251,6 +251,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	// Get stream protocol. Return type is protocol.ID which is an alias for string
 	streamProtocol := dhtStream.Protocol()
 	infos["protocol"] = streamProtocol
+	infos["knows_timestamp"] = time.Now().Format("2006-01-02T15:04:05-0700")
 	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers, info: infos}, nil
 }
 

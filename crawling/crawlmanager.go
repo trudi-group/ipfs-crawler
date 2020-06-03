@@ -67,6 +67,7 @@ type CrawledNode struct {
 	Reachable bool
 	AgentVersion string
 	Neighbours[] peer.ID
+	Timestamp string
 }
 
 
@@ -267,6 +268,13 @@ func (cm *CrawlManagerV2) createReport() *CrawlOutput {
 		} else {
 			status.AgentVersion = ""
 		}
+		if cm.info[node]["knows_timestamp"] != nil {
+			log.Debug("Setting time")
+			status.Timestamp = cm.info[node]["knows_timestamp"].(string)
+		} else {
+			status.Timestamp = ""
+		}
+
 
 
 		out.Nodes[node] = &status
