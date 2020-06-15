@@ -146,6 +146,10 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 	cm.toCrawl = append(cm.toCrawl, bootstraps...)
 	// idleTimer := time.NewTimer(1 * time.Minute)
 	log.Trace("Going into loop")
+
+	ticker := time.NewTicker(20*time.Second)
+	defer ticker.Stop()
+
 	for {
 		// check if we can break the loop
 		if len(cm.tokenBucket) == 0 &&
@@ -194,6 +198,13 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				// nothing to do; return token
 				 <- cm.tokenBucket
 			}
+		case <-ticker.C:
+			log.WithFields(log.Fields{
+				"Found nodes":			len(cm.online),
+				"Concurrent Requests":	len(cm.tokenBucket),
+				"ToCrawl":				len(cm.toCrawl),
+				"Reports":				len(cm.ReportQueue),}).Info("Periodic info on crawl status")
+		
 		// case <-idleTimer.C:
 		// 	log.Debug("###TIMER###")
 		// 	// Stop the crawl
