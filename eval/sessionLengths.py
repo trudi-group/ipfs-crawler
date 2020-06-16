@@ -8,6 +8,7 @@ import os
 from operator import itemgetter
 import numpy as np
 import time
+import json
 
 # Extracts the starting time of a crawl from its filename.
 # Format of the crawlnames is, e.g., visitedPeers_30-11-19--23:54:17_30-11-19--23:58:24.csv
@@ -57,9 +58,9 @@ if __name__ == "__main__":
 		## Crude progress indicator
 		print(ftuple)
 		with open(crawlDir+ftuple[0], "r") as f:
-			# Extract the IDs from the current crawl and remove the None's
-			currentCrawlIDs = [extractIDFromLine(l, offlineEnabled) for l in f]
-			currentCrawlIDs = [nodeid for nodeid in currentCrawlIDs if nodeid]
+			crawldata = json.load(f)
+
+			currentCrawlIDs = [node["NodeID"] for node in crawldata["Nodes"] if node["reachable"] or offlineEnabled]
 			# Add all seen IDs (with their starting time) to the dict, if they are not present.
 			# The idea is to keep track of the currently online IDs for each crawl and update the session dictionary
 			# accordingly.

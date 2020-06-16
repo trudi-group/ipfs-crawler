@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 
 def ExtractProtocols(maString):
 	# The format of such an address is
@@ -69,18 +70,14 @@ if __name__ == "__main__":
 		print(crawlFile)
 		print("Progress: " + str(i/len(peerFiles)))
 		with open(crawlDir+crawlFile, "r") as f:
-			lines = [l for l in f]
+			crawldata = json.load(f)
 
-			for l in lines:
-				s = l.split(";")
-				nodeid = s[0]
-				# Strip the brackets around the MA list, split at the whitespaces, extract protocol
-				rawMA = s[1].strip("[]") #.split(" ")
+			for node in crawldata["Nodes"]:
+				nodeid = node["NodeID"]
+				rawMA = node["MultiAddrs"]
 				# We had at least one occurence of an ID without address -> ignore that
 				if len(rawMA) == 0:
 					continue
-
-				rawMA = rawMA.split(" ")
 				MAProtArray = [ExtractProtocols(ma) for ma in rawMA]
 				# We get (protocol, addr) back, if the address is ipv4 or ipv6
 				updateProtocolDict(protocolDict, MAProtArray, nodeid, ts)

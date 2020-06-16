@@ -21,10 +21,10 @@ It starts from the (configurable) bootstrap nodes, polls their buckets and conti
 
 To run a single crawl simply do:
 
-	make preimages
 	make build
 	./start_crawl
 
+**Important note:** For a successful crawl you need either to pull the preimages with ```git lfs pull``` or compute them yourself with ```make preimages```.
 Note that the preimages only have to be computed *once*, it'll take some minutes, to compute them, though.
 ```start_crawl``` will be created at build time.
 
@@ -61,24 +61,42 @@ If configured, the crawler will check if it has seen the nodes listed in ```conf
 ## Output of a crawl
 
 Two files:
-* ```visitedPeers_<start_of_crawl_datetime>_<end_of_crawl_datetime>.csv```
+* ```visitedPeers_<start_of_crawl_datetime>_<end_of_crawl_datetime>.json```
 * ```peerGraph_<start_of_crawl_datetime>_<end_of_crawl_datetime>.csv```
 
 The dateformat is dd-mm-yy--H:M:S, where hours are in 24h format. For example, a crawl on the 20th of march 2020 that started at 11:58:17 and ended at 12:04:11:
 
-	visitedPeers_20-03-20--11:58:17_20-03-20--12:04:11.csv
+	visitedPeers_20-03-20--11:58:17_20-03-20--12:04:11.json
 
 ### Format of ```visitedPeers```
 
-Each line in ```visitedPeers``` corresponds to exactly one node on the network. The format is as follows:
-
-	Peer Multihash;[multiaddress_1, multiaddress_2, ..., multiaddress_n];reachable?;agentVersion
-
-Where ```reachable``` is true/false and indicates, whether the respective node could be reached by the crawler or not. Note that the crawler will try to connect to *all* multiaddresses that it found in the DHT for a given peer.
+```visitedPeers``` contains a json structure with meta information about the crawl as well as each found node.
+Each node entry corresponds to exactly one node on the network and has the following fields:
+```json
+{
+	"NodeID": "<multihash of the node id>",
+	"MultiAddrs": ["<multiaddress_1>", "<multiaddress_2>", "<multiaddress_n>"],
+	"reachable": "<whether our crawler could connect to the peer>",
+	"agent_version": "<if a connection was successful, the agent version string>"
+}
+```
+The NodeID is a [multihash](https://github.com/multiformats/multihash), the addresses a peer advertises are [multiaddresses](https://github.com/multiformats/multiaddr).
+```reachable``` is true/false and indicates, whether the respective node could be reached by the crawler or not. Note that the crawler will try to connect to *all* multiaddresses that it found in the DHT for a given peer.
+```agent_version``` is simply the agent version string the peer provides when connecting to it.
 Data example:
+```json
+{
+	"NodeID": "QmdGQGa1oJSqNekVinX3Vym4wXgwTnNbGHcW564pkkQzv8",
+	"MultiAddrs": [
+		"/ip4/192.168.1.3/tcp/4001",
+		"/ip6/::1/tcp/4001",
+		"/ip4/127.0.0.1/tcp/4001"
+	],
+	"reachable": true,
+	"agent_version": "go-ipfs/0.4.20/"
+}
+```
 
-	QmQEfD8366rDxNhaUti22p1scVRGNSYcL9YNUZcxktg7sX;[/ip4/49.235.108.57/tcp/4001 /ip6/::1/tcp/4001 /ip4/172.17.0.3/tcp/4001 /ip4/127.0.0.1/tcp/4001];true;go-ipfs/0.4.22/
-	
 ### Format of ```peerGraph```
 
 ```peerGraph``` is an edgelist, where each line in the file corresponds to one edge. A line has the form
