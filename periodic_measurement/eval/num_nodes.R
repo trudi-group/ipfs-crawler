@@ -11,7 +11,8 @@ outDTFile = "plot_data/num_nodes.csv"
 NumNodesSingleCrawl = function(filename) {
   dt = LoadDT(FullPath(filename))
   all = nrow(dt)
-  online = nrow(dt[V3 == "true"])
+  setnames(dt, 3, "online")
+  online = nrow(dt[online == "true"])
   res = data.table(ts=extractStartDate(filename), all=all, online=online)
   rm(dt)
   return(res)

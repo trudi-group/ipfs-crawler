@@ -1,7 +1,7 @@
 # Includes, libraries and constants
 
 packages = c("data.table", "reshape2", "ggplot2", "scales",
-             "stringr", "pbapply", "igraph", "xtable")
+             "stringr", "pbapply", "igraph", "xtable", "jsonlite")
 
 # shamelessly copied from Github (https://gist.github.com/stevenworthington/3178163)
 # It loads all required packages and installs them if they're not present
@@ -25,6 +25,8 @@ outPlotPath = "./figures/"
 outTabPath = "./tables/"
 visitedPattern = "visitedPeers_[:alphanum:]*"
 peerGraphPattern = "peerGraph_[:alphanum:]*"
+## In the current version of the JSON file, the node array comes at position 3
+jsonNodeContentIndex = 3
 bitmapHeight = 860
 bitmapWidth = 1200
 plotDateFormat = "%d/%m %H:%M"
@@ -87,7 +89,13 @@ LoadBootNodesFromFile = function(filepath) {
 
 ## LoadDT loads a single .csv into a data.table. By default it assumes there's no header.
 LoadDT = function(fullpath, header=F) {
-  return(data.table(read.csv(fullpath, header = header, stringsAsFactors = F, sep=";")))
+  ## Test if it's a .json or a .csv
+  if (grepl(".csv", fullpath, fixed = T)) {
+    return(data.table(read.csv(fullpath, header = header, stringsAsFactors = F, sep=";")))
+  } else {
+    ## We skip the crawl metadata by returning the node array directly.
+    return(data.table(fromJSON(fullpath)[[jsonNodeContentIndex]]))
+  }
 }
 
 ## Load one graph from .csv into memory
