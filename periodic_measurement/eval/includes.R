@@ -16,7 +16,7 @@ ipak <- function(pkg){
 
 ipak(packages)
 pbo = pboptions(type="txt") # !!!
-theme_set(theme_bw(10))
+theme_set(theme_bw(18))
 
 ################# CONSTANTS ###########################
 
@@ -27,10 +27,10 @@ visitedPattern = "visitedPeers_[:alphanum:]*"
 peerGraphPattern = "peerGraph_[:alphanum:]*"
 ## In the current version of the JSON file, the node array comes at position 3
 jsonNodeContentIndex = 3
-bitmapHeight = 860
-bitmapWidth = 1200
+bitmapHeight = 760
+bitmapWidth = 1000
 plotDateFormat = "%d/%m %H:%M"
-plotPointSize = 0.5
+plotPointSize = 1
 palette <- c("#018571", "#DFC27D", "#A6611A")
 plotBreakNumber = 5
 

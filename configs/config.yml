@@ -10,7 +10,7 @@ maxbackofftime: 500 # Backoff time for connecting.
 minrequest: 10 # Minimum numbers of connections at all times
 numpreimages: 16777216 # Number of preimages
 numworker: 1 # Number of Workers
-outpath: periodic_measurement/data/ # Output path of written output
+outpath: /home/sebi/github-ipfs-crawler/ipfs-crawler/periodic_measurement/data/ # Output path of written output
 preimagepath: precomputed_hashes/preimages.csv.zst # Path to preimages
 queuesize: 64384 # Size of the queue
 rate: 500 # Max rate for connection token bucket

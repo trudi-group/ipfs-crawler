@@ -48,6 +48,7 @@ png(filename=paste(outPlotPath, "agent_version_distribution.png", sep=""), heigh
 q
 dev.off()
 
+write.table(truncatedDT, "plot_data/agent_versions_truncated.csv", row.names=F, sep=";")
 ## Output a complete table of all agent versions
 
 # print(xtable(agentCounts, align = c("|c|l|c|"),
