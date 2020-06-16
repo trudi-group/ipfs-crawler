@@ -200,10 +200,10 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			}
 		case <-ticker.C:
 			log.WithFields(log.Fields{
-				"Found nodes":			len(cm.online),
-				"Concurrent Requests":	len(cm.tokenBucket),
-				"ToCrawl":				len(cm.toCrawl),
-				"Reports":				len(cm.ReportQueue),}).Info("Periodic info on crawl status")
+				"Found nodes":			len(cm.crawled),
+				"Waiting for requests":	len(cm.tokenBucket),
+				"To-crawl-queue":		len(cm.toCrawl),
+				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
 		
 		// case <-idleTimer.C:
 		// 	log.Debug("###TIMER###")
@@ -259,6 +259,14 @@ func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
 }
 
 func (cm *CrawlManagerV2) createReport() *CrawlOutput {
+	// Output a crawl report into the log
+	log.WithFields(log.Fields{
+		"start time":			cm.startTime.Format(cm.config.FilenameTimeFormat),
+		"end time:":			time.Now().Format(cm.config.FilenameTimeFormat),
+		"number of nodes": 		len(cm.crawled),
+		"connectable nodes": 	len(cm.online),
+	}).Info("Crawl finished. Summary of results.")
+
 	out :=  CrawlOutput{StartDate:cm.startTime.Format(cm.config.FilenameTimeFormat), EndDate:time.Now().Format(cm.config.FilenameTimeFormat), Nodes: map[peer.ID]*CrawledNode{}}
 	for node, Addresses := range cm.crawled {
 		var status CrawledNode
