@@ -105,8 +105,7 @@ func main() {
     viper.BindPFlag("Sanity",flag.Lookup("Sanity"))
     viper.BindPFlag("WriteToFileFlag",flag.Lookup("WriteToFile"))
 
-		fmt.Println(viper.GetString("loglevel"))
-		config := setupViper()
+	config := setupViper()
     if help {
         flag.PrintDefaults()
         os.Exit(0)
@@ -128,7 +127,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(config.LogLevel)
 	log.SetLevel(logLevel)
 
 	// Let's go!

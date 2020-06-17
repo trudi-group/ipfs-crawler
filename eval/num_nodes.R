@@ -13,7 +13,7 @@ NumNodesSingleCrawl = function(filename) {
   dt = LoadDT(FullPath(filename))
   all = nrow(dt)
   setnames(dt, 3, "online")
-  online = nrow(dt[online == "true"])
+  online = nrow(dt[online == TRUE])
   res = data.table(ts=extractStartDate(filename), all=all, online=online)
   rm(dt)
   return(res)
