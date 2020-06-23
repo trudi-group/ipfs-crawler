@@ -1,20 +1,18 @@
 bootstrapfile: configs/bootstrappeers.txt # Path to the file with peers for bootstrapping
 cachefile: nodes.cache # Path to cache file
 canaryfile: configs/canary.txt # Path to file with peers for sanity checks
-connecttimeout: 45s # Time for timeout when connecting
+connecttimeout: 180s # Time for timeout when connecting
 filenametimeformat: 02-01-06--15:04:05 # Naming format for output files
 loglevel: info # Level for logging
 logtimeformat: "15:04:05" # Format of Log
 lowerratelimit: 0.5 # Lower limit for raising the token bucket
-maxbackofftime: 500 # Backoff time for connecting.
+maxbackofftime: 250 # Backoff time for connecting.
 minrequest: 10 # Minimum numbers of connections at all times
 numpreimages: 16777216 # Number of preimages
 numworker: 1 # Number of Workers
 outpath: output_data_crawls/ # Output path of written output
 preimagepath: precomputed_hashes/preimages.csv.zst # Path to preimages
-queuesize: 64384 # Size of the queue
-rate: 500 # Max rate for connection token bucket
+queuesize: 2000 # Size of the queue, also controls the
 sanity: false # Bool for activating sanity checks
-upperratelimit: 0.9 # Upper limit for rasing the token bucket
 usecache: true # Bool for using a cache
 writetofileflag: true # Bool for writing to files

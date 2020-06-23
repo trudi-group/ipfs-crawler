@@ -16,10 +16,11 @@ if (countryCutOff <= 12) {
 
 mcounts = LoadDT(inputDataFile, header=T)
 mcounts$N = as.double(mcounts$N)
+setnames(mcounts, 1:4, c("CountryCode", "N", "timestamp", "type"))
 
 numNodes = mcounts[type=="all", .(numNodes = sum(N)), .(timestamp)]
 numNodesReachable = mcounts[type=="reachable", .(numNodes = sum(N)), .(timestamp)]
-localIPs = mcounts[V1 == "LocalIP",][,N,timestamp]
+localIPs = mcounts[CountryCode == "LocalIP",][,N,timestamp]
 avgPercLocalIP = mean(100*localIPs$N/numNodes$numNodes)
 writeToEvalRounded("PercLocalIPs", avgPercLocalIP)
 
@@ -27,7 +28,7 @@ numberOfTimestamps = length(unique(mcounts$timestamp))
 ## The mean + CI computation
 aggrCounts = mcounts[, .(AvgCount = sum(N)/numberOfTimestamps, 
                          CILower = format(max(CI(N)[1], 0), scientific = F), 
-                         CIUpper = CI(N)[2]), by = .(V1, type)]
+                         CIUpper = CI(N)[2]), by = .(CountryCode, type)]
 
 ## Sort by avgcount, so we can take the 10 (or countryCutoff) largest shares
 mcountsAll = aggrCounts[order(-AvgCount)]
@@ -35,8 +36,8 @@ mcountsReachable = aggrCounts[type=="reachable"]
 mcountsReachable = mcountsReachable[order(-AvgCount)]
 
 ## For eval.lua: How big is the share of the top N countries?
-topNAllCountries = mcountsAll[type == "all"][1:10]$V1
-DTTopNAll = mcounts[mcounts[type=="all", .I[V1 %in% topNAllCountries], .(timestamp)][,V1]]
+topNAllCountries = mcountsAll[type == "all"][1:10]$CountryCode
+DTTopNAll = mcounts[mcounts[type=="all", .I[CountryCode %in% topNAllCountries], .(timestamp)][,V1]]
 DTTopNAll = DTTopNAll[, .(sumTopN = sum(N)), .(timestamp)]
 merged = DTTopNAll[numNodes, on=c("timestamp")]
 topNAllPercentage = merged$sumTopN*100/merged$numNodes
@@ -44,9 +45,9 @@ topNAllPercentage = merged$sumTopN*100/merged$numNodes
 writeToEvalRounded("geoIPtopNAllPercentage", mean(topNAllPercentage))
 
 ## The same for the reachable nodes
-topNReachableCountries = mcountsReachable[1:10]$V1
+topNReachableCountries = mcountsReachable[1:10]$CountryCode
 
-DTTopNReachable = mcounts[mcounts[type=="reachable", .I[V1 %in% topNReachableCountries], .(timestamp)][,V1]]
+DTTopNReachable = mcounts[mcounts[type=="reachable", .I[CountryCode %in% topNReachableCountries], .(timestamp)][,V1]]
 DTTopNReachable = DTTopNReachable[, .(sumTopN = sum(N)), .(timestamp)]
 mergedReachable = DTTopNReachable[numNodesReachable, on=c("timestamp")]
 topNReachablePercentage = mergedReachable$sumTopN*100/mergedReachable$numNodes

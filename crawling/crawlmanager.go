@@ -99,6 +99,7 @@ type CrawledNode struct {
 	Reachable bool
 	AgentVersion string
 	Neighbours[] peer.ID
+	Timestamp string
 }
 
 
@@ -180,6 +181,10 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 	cm.toCrawl = append(cm.toCrawl, bootstraps...)
 	// idleTimer := time.NewTimer(1 * time.Minute)
 	log.Trace("Going into loop")
+
+	ticker := time.NewTicker(20*time.Second)
+	defer ticker.Stop()
+
 	for {
 		// check if we can break the loop
 		if len(cm.tokenBucket) == 0 &&
@@ -228,6 +233,13 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				// nothing to do; return token
 				 <- cm.tokenBucket
 			}
+		case <-ticker.C:
+			log.WithFields(log.Fields{
+				"Found nodes":			len(cm.crawled),
+				"Waiting for requests":	len(cm.tokenBucket),
+				"To-crawl-queue":		len(cm.toCrawl),
+				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
+		
 		// case <-idleTimer.C:
 		// 	log.Debug("###TIMER###")
 		// 	// Stop the crawl
@@ -286,6 +298,14 @@ func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
 }
 
 func (cm *CrawlManagerV2) createReport() *CrawlOutput {
+	// Output a crawl report into the log
+	log.WithFields(log.Fields{
+		"start time":			cm.startTime.Format(cm.config.FilenameTimeFormat),
+		"end time:":			time.Now().Format(cm.config.FilenameTimeFormat),
+		"number of nodes": 		len(cm.crawled),
+		"connectable nodes": 	len(cm.online),
+	}).Info("Crawl finished. Summary of results.")
+
 	out :=  CrawlOutput{StartDate:cm.startTime.Format(cm.config.FilenameTimeFormat), EndDate:time.Now().Format(cm.config.FilenameTimeFormat), Nodes: map[peer.ID]*CrawledNode{}}
 	for node, Addresses := range cm.crawled {
 		var status CrawledNode
@@ -306,6 +326,13 @@ func (cm *CrawlManagerV2) createReport() *CrawlOutput {
 		} else {
 			status.AgentVersion = ""
 		}
+		if cm.info[node]["knows_timestamp"] != nil {
+			log.Debug("Setting time")
+			status.Timestamp = cm.info[node]["knows_timestamp"].(string)
+		} else {
+			status.Timestamp = ""
+		}
+
 
 
 		out.Nodes[node] = &status

@@ -50,11 +50,12 @@ func WritePeergraph(report *CrawlOutput, path string)  {
   } else if err != nil {
     panic(err)
   }
-  fmt.Fprintf(f, "SOURCE;TARGET;ONLINE\n")
+  fmt.Fprintf(f, "SOURCE;TARGET;ONLINE;TIMESTAMP\n")
   for _, node := range report.Nodes {
     for _, neigh := range node.Neighbours{
       on := report.Nodes[neigh].Reachable
-      fmt.Fprintf(f, "%s;%s;%t\n", node.NID, neigh, on)
+      time := node.Timestamp
+      fmt.Fprintf(f, "%s;%s;%t;%s\n", node.NID, neigh, on, time)
     }
 
   }
