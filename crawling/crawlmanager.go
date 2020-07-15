@@ -2,7 +2,7 @@ package crawling
 
 import (
 	// utils "ipfs-crawler/common"
-	// "fmt"
+	"fmt"
 	// "context"
 	"time"
 
@@ -109,6 +109,13 @@ type CrawlResult struct {
 	Err  error
 }
 
+type Trace struct{
+	Id peer.ID
+	Status error
+	Start time.Time
+	End time.Time
+}
+
 type CrawlManagerV2 struct {
 	// cacheFile string
 	// useCache bool
@@ -134,6 +141,8 @@ type CrawlManagerV2 struct {
 	// errorMap map[string]int
 	config CrawlManagerConfig
 	Events Events
+	errorMap map[string]int
+
 }
 
 func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
@@ -150,6 +159,7 @@ func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
 		Done:               make(chan bool),
 		startTime:          time.Now(),
 		Events:							newEventMgr(),
+		errorMap:						make(map[string]int),
 	}
 	// for i := 1; i <= concurrentRequests; i++ {
 	// 	cm.tokenBucket <- true
@@ -211,7 +221,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Debug("Error while crawling")
 				// TODO: Error handling
-				continue
+				IdentifyError(err)
 			} else {
 				cm.online[node.id] = true
 				cm.knows[node.id] = AddrInfoToID(node.knows)
@@ -239,7 +249,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				"Waiting for requests":	len(cm.tokenBucket),
 				"To-crawl-queue":		len(cm.toCrawl),
 				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
-		
+
 		// case <-idleTimer.C:
 		// 	log.Debug("###TIMER###")
 		// 	// Stop the crawl
@@ -250,11 +260,13 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 
 	}
 	cm.Events.Fire(cm.Events.CRAWL_ENDED, "")
+	cm.printErrorStats()
 	return cm.createReport()
 }
 
 func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo) {
 	worker := *cm.workers[0]
+	// start := time.Now()
 	cm.Events.Fire(cm.Events.CON_TRY, "")
 	result, err := worker.CrawlPeer(node) //FIXME: worker selection
 	if err != nil {
@@ -266,6 +278,21 @@ func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo) {
 	}
 	cm.ReportQueue <- CrawlResult{Node: result, Err: err}
 	 <- cm.tokenBucket
+}
+
+func (cm *CrawlManagerV2) handleError(node *NodeKnows, err error)  {
+
+	if _, ok := cm.errorMap[err.Error()]; ok {
+		cm.errorMap[err.Error()] += 1
+	} else {
+		cm.errorMap[err.Error()] = 1
+	}
+}
+
+func (cm *CrawlManagerV2) printErrorStats()  {
+	for val, key := range cm.errorMap{
+		fmt.Printf("%s: %d", key, val)
+	}
 }
 
 func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
