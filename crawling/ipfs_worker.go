@@ -89,6 +89,7 @@ type IPFSWorker struct {
 	crawlAttempts int
 	resultChannel chan peer.AddrInfo
 	config        CrawlerConfig
+	capacity			int
 }
 
 // NodeKnows tores the collected adresses for a given ID
@@ -117,6 +118,7 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		cancelFunc:    cancel,
 		resultChannel: make(chan peer.AddrInfo, 1000),
 		config:        config,
+		capacity:			 3000,
 	}
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2024)
@@ -226,6 +228,9 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 
 func (w *IPFSWorker) AddPreimages(handler *PreImageHandler)  {
 	w.ph = handler
+}
+func (w *IPFSWorker) Capacity () int {
+	return w.capacity
 }
 
 // CrawlPeer crawls a specific ID

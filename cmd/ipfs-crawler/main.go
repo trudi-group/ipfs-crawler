@@ -64,7 +64,7 @@ func init() {
     viper.SetDefault("loglevel", "debug")
     viper.SetDefault("useCache", true)
     viper.SetDefault("cacheFile", "nodes.cache")
-    viper.SetDefault("numWorker", 1)
+    viper.SetDefault("numWorker", 8)
     viper.SetDefault("logTimeFormat", "15:04:05")
     viper.SetDefault("bootstrapFile", "configs/bootstrappeers.txt")
     viper.SetDefault("logLevel", "info")
@@ -155,11 +155,11 @@ func main() {
 	// Second, check if the pre-image file exists
 	cm := crawlLib.NewCrawlManagerV2(config.QueueSize)
 	log.WithField("numberOfWorkers", config.NumWorker).Info("Creating workers...")
-	// for i := 0; i < config.NumWorker; i++ {
-	// 	cm.CreateAndAddWorker()
-	// }
-	worker := crawlLib.NewIPFSWorker(0, context.Background())
-	cm.AddWorker(worker)
+	for i := 0; i < config.NumWorker; i++ {
+		worker := crawlLib.NewIPFSWorker(0, context.Background())
+		cm.AddWorker(worker)
+	}
+
 
 	bootstrappeers, err := LoadBootstrapList(config.BootstrapFile)
 	if err != nil {
