@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	utils "ipfs-crawler/common"
+	// utils "ipfs-crawler/common"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
@@ -13,7 +13,7 @@ import (
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
 	"time"
-	"os"
+	// "os"
 
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -129,17 +129,9 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	}
 	w.h = h
 
-	preimages, err := LoadPreimages(config.PreImagePath, config.NumPreImages)
-	if err != nil {
-		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
-		if !utils.AskYesNo() {
-			os.Exit(0)
-		}
-	}
-
-	w.ph = &PreImageHandler{
-		PreImages: preimages,
-	}
+	// w.ph = &PreImageHandler{
+	// 	PreImages: preimages,
+	// }
 
 	return w
 }
