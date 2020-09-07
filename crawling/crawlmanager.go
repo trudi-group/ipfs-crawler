@@ -179,7 +179,8 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 
 	ticker := time.NewTicker(20*time.Second)
 	defer ticker.Stop()
-
+    idleTimer := time.NewTimer(1 * time.Minute)
+    defer idleTimer.Stop()
 	for {
 		// check if we can break the loop
 		if len(cm.tokenBucket) == cm.queueSize &&
@@ -188,11 +189,8 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			log.Info("Stopping crawl...")
 			break
 		}
-		log.WithFields(log.Fields{
-			"Current Request": len(cm.tokenBucket),
-			"toCrawl":           len(cm.toCrawl),
-			"Reports":           len(cm.ReportQueue),
-		}).Debug("Status of Manager")
+
+        idleTimer := time.NewTimer(1 * time.Minute)
 		select {
 		case report := <-cm.ReportQueue:
 			// We have new information incomming
@@ -200,9 +198,9 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			err := report.Err
 			// First, stop the idle timer. The following code is from the docs, apparently there are race conditions
 			// with Stop() and the timer channel we're reading from.
-			// if !idleTimer.Stop() {
-			// 	<-idleTimer.C
-			// }
+			if !idleTimer.Stop() {
+				<-idleTimer.C
+			}
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Debug("Error while crawling")
 				// TODO: Error handling
@@ -214,7 +212,11 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				for _, p := range node.knows {
 					cm.handleInputNodes(p)
 				}
-
+            log.WithFields(log.Fields{
+                "Current Request": cm.queueSize - len(cm.tokenBucket),
+                "toCrawl":           len(cm.toCrawl),
+                "Reports":           len(cm.ReportQueue),
+            }).Debug("Status of Manager")
 			}
 		// case token := <-cm.tokenBucket :
 		case id := <- cm.tokenBucket:
@@ -235,12 +237,12 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				"To-crawl-queue":		len(cm.toCrawl),
 				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
 
-		// case <-idleTimer.C:
-		// 	log.Debug("###TIMER###")
-		// 	// Stop the crawl
-		// 	log.Debug("Idle timer fired, stopping the crawl.")
-		// 	break
-		default:
+		case <-idleTimer.C:
+			// log.Debug("###TIMER###")
+			// Stop the crawl
+			log.Debug("Idle timer fired, stopping the crawl.")
+			break
+		// default:
 		}
 
 	}
