@@ -3,7 +3,7 @@ cachefile: nodes.cache # Path to cache file
 canaryfile: configs/canary.txt # Path to file with peers for sanity checks
 connecttimeout: 180s # Time for timeout when connecting
 filenametimeformat: 02-01-06--15:04:05 # Naming format for output files
-loglevel: debug # Level for logging
+loglevel: info # Level for logging
 logtimeformat: "15:04:05" # Format of Log
 lowerratelimit: 0.5 # Lower limit for raising the token bucket
 maxbackofftime: 250 # Backoff time for connecting.

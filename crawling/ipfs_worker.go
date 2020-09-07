@@ -44,7 +44,8 @@ type CrawlerConfig struct {
 	MaxBackOffTime int
 	ConnectTimeout time.Duration
 	PreImagePath string
-  NumPreImages int
+    NumPreImages int
+    QueueSize int
 }
 
 func configure() CrawlerConfig {
@@ -118,7 +119,7 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		cancelFunc:    cancel,
 		resultChannel: make(chan peer.AddrInfo, 1000),
 		config:        config,
-		capacity:			 3000,
+		capacity:      config.QueueSize,
 	}
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2024)

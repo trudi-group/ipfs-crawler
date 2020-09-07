@@ -231,7 +231,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 		case <-ticker.C:
 			log.WithFields(log.Fields{
 				"Found nodes":			len(cm.crawled),
-				"Waiting for requests":	len(cm.tokenBucket),
+				"Waiting for requests":	cm.queueSize - len(cm.tokenBucket),
 				"To-crawl-queue":		len(cm.toCrawl),
 				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
 
