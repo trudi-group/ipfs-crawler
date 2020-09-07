@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	utils "ipfs-crawler/common"
+	// utils "ipfs-crawler/common"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
@@ -13,7 +13,7 @@ import (
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
 	"time"
-	"os"
+	// "os"
 
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -89,6 +89,7 @@ type IPFSWorker struct {
 	crawlAttempts int
 	resultChannel chan peer.AddrInfo
 	config        CrawlerConfig
+	capacity			int
 }
 
 // NodeKnows tores the collected adresses for a given ID
@@ -117,6 +118,7 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		cancelFunc:    cancel,
 		resultChannel: make(chan peer.AddrInfo, 1000),
 		config:        config,
+		capacity:			 3000,
 	}
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2024)
@@ -127,17 +129,9 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	}
 	w.h = h
 
-	preimages, err := LoadPreimages(config.PreImagePath, config.NumPreImages)
-	if err != nil {
-		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
-		if !utils.AskYesNo() {
-			os.Exit(0)
-		}
-	}
-
-	w.ph = &PreImageHandler{
-		PreImages: preimages,
-	}
+	// w.ph = &PreImageHandler{
+	// 	PreImages: preimages,
+	// }
 
 	return w
 }
@@ -226,6 +220,9 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 
 func (w *IPFSWorker) AddPreimages(handler *PreImageHandler)  {
 	w.ph = handler
+}
+func (w *IPFSWorker) Capacity () int {
+	return w.capacity
 }
 
 // CrawlPeer crawls a specific ID

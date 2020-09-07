@@ -61,7 +61,7 @@ func WritePeergraph(report *CrawlOutput, path string)  {
   }
 }
 
-// RestoreNodeCache restores a previously cached file of nodes.
+// RestoreNodeCache restores a viously cached file of nodes.
 func RestoreNodeCache(path string) ([]*peer.AddrInfo, error)  {
     nodedata, err := ioutil.ReadFile(path)
     if err != nil {
