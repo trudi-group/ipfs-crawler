@@ -77,8 +77,8 @@ func RestoreNodeCache(path string) ([]*peer.AddrInfo, error)  {
     }
     var out []*peer.AddrInfo
     // switch to pointers to fullfil requirements of main.go... because this is stupid
-    for _, val := range result{
-        out = append(out, &val)
+    for it := range result{
+        out = append(out, &result[it])
     }
     return out, nil
 }
