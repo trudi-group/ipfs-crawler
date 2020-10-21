@@ -6,6 +6,8 @@ require (
 	cloud.google.com/go v0.45.1 // indirect
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/DataDog/zstd v1.4.5
+	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
+	github.com/FactomProject/btcutilecc v0.0.0-20130527213604-d3a63a5752ec // indirect
 	github.com/btcsuite/goleveldb v1.0.0 // indirect
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.15+incompatible // indirect
@@ -27,8 +29,11 @@ require (
 	github.com/libp2p/go-libp2p-core v0.5.3
 	github.com/libp2p/go-libp2p-kad-dht v0.7.11
 	github.com/libp2p/go-libp2p-kbucket v0.4.1
+	github.com/libp2p/go-libp2p-noise v0.1.2
 	github.com/libp2p/go-libp2p-routing v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-secio v0.2.2
 	github.com/libp2p/go-libp2p-swarm v0.2.3
+	github.com/libp2p/go-libp2p-tls v0.1.3
 	github.com/libp2p/go-msgio v0.0.4
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mailru/easyjson v0.7.0 // indirect
@@ -56,6 +61,8 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/tsenart/deadcode v0.0.0-20160724212837-210d2dc333e9 // indirect
+	github.com/tyler-smith/go-bip32 v0.0.0-20170922074101-2c9cfd177564
+	github.com/tyler-smith/go-bip39 v1.0.2
 	github.com/ugorji/go v1.1.7 // indirect
 	github.com/walle/lll v1.0.1 // indirect
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc // indirect

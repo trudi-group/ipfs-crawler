@@ -1,4 +1,4 @@
-bootstrapfile: configs/bootstrappeers.txt # Path to the file with peers for bootstrapping
+bootstrapfile: configs/btfspeer.txt # Path to the file with peers for bootstrapping
 cachefile: nodes.cache # Path to cache file
 canaryfile: configs/canary.txt # Path to file with peers for sanity checks
 connecttimeout: 180s # Time for timeout when connecting
