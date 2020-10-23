@@ -122,7 +122,7 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		capacity:      config.QueueSize,
 	}
 	// Init the host, i.e., generate priv key and all that stuff
-	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2024)
+	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	opts := []libp2p.Option{libp2p.Identity(priv)}
 	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
