@@ -16,6 +16,6 @@ cd ../
 while [[ $counter -le $times ]]
 do
 	echo "Crawl no. $counter"
-	./start_crawl #2> /dev/null
+	./start_crawl 2> crawl_log_$counter.log #2> /dev/null
 	((counter++))
 done
