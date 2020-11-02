@@ -61,7 +61,7 @@ func WritePeergraph(report *CrawlOutput, path string)  {
   }
 }
 
-// RestoreNodeCache restores a previously cached file of nodes.
+// RestoreNodeCache restores a viously cached file of nodes.
 func RestoreNodeCache(path string) ([]*peer.AddrInfo, error)  {
     nodedata, err := ioutil.ReadFile(path)
     if err != nil {
@@ -77,8 +77,8 @@ func RestoreNodeCache(path string) ([]*peer.AddrInfo, error)  {
     }
     var out []*peer.AddrInfo
     // switch to pointers to fullfil requirements of main.go... because this is stupid
-    for _, val := range result{
-        out = append(out, &val)
+    for it := range result{
+        out = append(out, &result[it])
     }
     return out, nil
 }

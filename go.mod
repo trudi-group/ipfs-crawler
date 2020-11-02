@@ -39,6 +39,7 @@ require (
 	github.com/multiformats/go-multiaddr-net v0.1.4
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
+	github.com/opennota/check v0.0.0-20180911053232-0c771f5545ff // indirect
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.4.0 // indirect
 	github.com/prometheus/client_golang v1.1.0 // indirect
@@ -54,7 +55,9 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/objx v0.2.0 // indirect
+	github.com/tsenart/deadcode v0.0.0-20160724212837-210d2dc333e9 // indirect
 	github.com/ugorji/go v1.1.7 // indirect
+	github.com/walle/lll v1.0.1 // indirect
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc // indirect
 	github.com/whyrusleeping/go-notifier v0.0.0-20170827234753-097c5d47330f // indirect
 	github.com/whyrusleeping/mdns v0.0.0-20190826153040-b9b60ed33aa9 // indirect

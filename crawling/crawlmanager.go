@@ -52,6 +52,7 @@ func configureCrawlerManager() CrawlManagerConfig {
 
 //Interface for a crawlWorker
 type CrawlerWorker interface {
+	Capacity() int
 	CrawlPeer(*peer.AddrInfo) (*NodeKnows, error)
 }
 
@@ -86,7 +87,7 @@ type CrawlManagerV2 struct {
 	// workQueue chan peer.AddrInfo
 	ReportQueue        chan CrawlResult
 	toCrawl            []*peer.AddrInfo
-	tokenBucket        chan bool
+	tokenBucket        chan int
 	concurrentRequests int
 	// We use this map not only to store whether we crawled a node but also to store a nodes multiaddress
 	crawled map[peer.ID][]ma.Multiaddr
@@ -108,7 +109,7 @@ func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
 	cm := &CrawlManagerV2{
 		ReportQueue:        make(chan CrawlResult, queueSize),
 		// concurrentRequests: concurrentRequests,
-		tokenBucket:        make(chan bool, queueSize),
+		tokenBucket:        make(chan int, queueSize),
 		crawled:            make(map[peer.ID][]ma.Multiaddr),
 		online:             make(map[peer.ID]bool),
 		knows:              make(map[peer.ID][]peer.ID),
@@ -127,6 +128,35 @@ func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
 
 func (cm *CrawlManagerV2) AddWorker(w CrawlerWorker) {
 	cm.workers = append(cm.workers, &w)
+	// get sum and maximum capacity of workers
+	// recreate the tokenBucket
+	// add tokens round-robin style
+	sumCap := 0
+	maxCap := 0
+	for _, worker := range cm.workers {
+		if (*worker).Capacity() > maxCap {
+			maxCap = (*worker).Capacity()
+		}
+		sumCap += (*worker).Capacity()
+	}
+	log.WithFields(log.Fields{
+		"sumCap":           sumCap,
+		"maxCap":						maxCap,
+		"capacity":					w.Capacity(),
+	}).Debug("Size of Queue")
+	cm.tokenBucket = make(chan int, sumCap)
+	cm.ReportQueue = make(chan CrawlResult, sumCap)
+	cm.queueSize = sumCap
+	for iter := 0; iter < maxCap; iter++ {
+		for id, worker := range cm.workers {
+			if (*worker).Capacity() >= iter{
+				cm.tokenBucket <- id
+			}
+		}
+	}
+	log.WithFields(log.Fields{
+		"QueueSize":           len(cm.tokenBucket),
+	}).Debug("Size of Queue")
 }
 
 func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput {
@@ -149,20 +179,18 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 
 	ticker := time.NewTicker(20*time.Second)
 	defer ticker.Stop()
-
+    idleTimer := time.NewTimer(1 * time.Minute)
+    defer idleTimer.Stop()
 	for {
 		// check if we can break the loop
-		if len(cm.tokenBucket) == 0 &&
+		if len(cm.tokenBucket) == cm.queueSize &&
 			len(cm.toCrawl) == 0 &&
 			len(cm.ReportQueue) == 0 {
 			log.Info("Stopping crawl...")
 			break
 		}
-		log.WithFields(log.Fields{
-			"Current Request": len(cm.tokenBucket),
-			"toCrawl":           len(cm.toCrawl),
-			"Reports":           len(cm.ReportQueue),
-		}).Debug("Status of Manager")
+
+        idleTimer := time.NewTimer(1 * time.Minute)
 		select {
 		case report := <-cm.ReportQueue:
 			// We have new information incomming
@@ -170,9 +198,9 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			err := report.Err
 			// First, stop the idle timer. The following code is from the docs, apparently there are race conditions
 			// with Stop() and the timer channel we're reading from.
-			// if !idleTimer.Stop() {
-			// 	<-idleTimer.C
-			// }
+			if !idleTimer.Stop() {
+				<-idleTimer.C
+			}
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Debug("Error while crawling")
 				// TODO: Error handling
@@ -184,41 +212,45 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				for _, p := range node.knows {
 					cm.handleInputNodes(p)
 				}
-
+            log.WithFields(log.Fields{
+                "Current Request": cm.queueSize - len(cm.tokenBucket),
+                "toCrawl":           len(cm.toCrawl),
+                "Reports":           len(cm.ReportQueue),
+            }).Debug("Status of Manager")
 			}
 		// case token := <-cm.tokenBucket :
-		case cm.tokenBucket <- true:
+		case id := <- cm.tokenBucket:
 			// We can start a crawl, so let's do that
 			if len(cm.toCrawl) > 0 {
 				var node *peer.AddrInfo
 				node, cm.toCrawl = cm.toCrawl[0], cm.toCrawl[1:]
 				log.WithFields(log.Fields{"node": node.ID}).Debug("Dispatch crawler request")
-				go cm.dispatch(node)
+				go cm.dispatch(node, id)
 			} else {
 				// nothing to do; return token
-				 <- cm.tokenBucket
+				cm.tokenBucket <- id
 			}
 		case <-ticker.C:
 			log.WithFields(log.Fields{
 				"Found nodes":			len(cm.crawled),
-				"Waiting for requests":	len(cm.tokenBucket),
+				"Waiting for requests":	cm.queueSize - len(cm.tokenBucket),
 				"To-crawl-queue":		len(cm.toCrawl),
 				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
-		
-		// case <-idleTimer.C:
-		// 	log.Debug("###TIMER###")
-		// 	// Stop the crawl
-		// 	log.Debug("Idle timer fired, stopping the crawl.")
-		// 	break
-		default:
+
+		case <-idleTimer.C:
+			// log.Debug("###TIMER###")
+			// Stop the crawl
+			log.Debug("Idle timer fired, stopping the crawl.")
+			break
+		// default:
 		}
 
 	}
 	return cm.createReport()
 }
 
-func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo) {
-	worker := *cm.workers[0]
+func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo, id int) {
+	worker := *cm.workers[id]
 	result, err := worker.CrawlPeer(node) //FIXME: worker selection
 	if err != nil {
 		//TODO: failed connection callback
@@ -226,7 +258,7 @@ func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo) {
 		// TODO: successful conncetion callback
 	}
 	cm.ReportQueue <- CrawlResult{Node: result, Err: err}
-	 <- cm.tokenBucket
+	cm.tokenBucket <- id
 }
 
 func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
@@ -288,7 +320,7 @@ func (cm *CrawlManagerV2) createReport() *CrawlOutput {
 			status.AgentVersion = ""
 		}
 		if cm.info[node]["knows_timestamp"] != nil {
-			log.Debug("Setting time")
+			// log.Debug("Setting time")
 			status.Timestamp = cm.info[node]["knows_timestamp"].(string)
 		} else {
 			status.Timestamp = ""

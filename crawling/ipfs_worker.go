@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	utils "ipfs-crawler/common"
+	// utils "ipfs-crawler/common"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
@@ -13,7 +13,7 @@ import (
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
 	"time"
-	"os"
+	// "os"
 
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -26,22 +26,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Variables for flowcontrol.
-const (
-	// Upper limit at which we stop returning the flowcontrol token.
-	// upperRateLimit = 0.9
-	// Lower limit at which we start growing the flowcontrol token bucket again.
-	// lowerRateLimit = 0.5
-	// minRequest is the minimal number of live request, to avoid the token bucket to shut down.
-	// minRequest = 10
-	// The rate at which we create flowcontrol tokens
-	// rate = 500
-	// Maximum connection backoff time in milliseconds
-	// maxBackOffTime = 500
-	// Timeout to the basicHost's Connect() function
-	// connectTimeout = 45 * time.Second
-
-)
 
 var ProtocolStrings []protocol.ID = []protocol.ID{
 	"/ipfs/kad/1.0.0",
@@ -50,10 +34,6 @@ var ProtocolStrings []protocol.ID = []protocol.ID{
 
 func init() {
 	// Set defaults
-	viper.SetDefault("upperRateLimit", 0.9)
-	viper.SetDefault("lowerRateLimit", 0.5)
-	viper.SetDefault("minRequest", 10)
-	viper.SetDefault("rate", 500)
 	viper.SetDefault("maxBackOffTime", 500)
 	viper.SetDefault("connectTimeout", 45*time.Second)
 	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
@@ -61,14 +41,11 @@ func init() {
 }
 
 type CrawlerConfig struct {
-	UpperRateLimit float64
-	LowerRateLimit float64
-	MinRequest     int
-	Rate           int
 	MaxBackOffTime int
 	ConnectTimeout time.Duration
 	PreImagePath string
-  NumPreImages int
+    NumPreImages int
+    QueueSize int
 }
 
 func configure() CrawlerConfig {
@@ -103,7 +80,6 @@ func (e *PrefixLimitError) Error() string {
 // IPFSWorker performs the connection and extracting the dht buckets from remote nodes.
 type IPFSWorker struct {
 	id        int
-	rateLimit chan bool
 	ph        *PreImageHandler
 	quitMsg   chan bool
 	h         host.Host
@@ -114,6 +90,7 @@ type IPFSWorker struct {
 	crawlAttempts int
 	resultChannel chan peer.AddrInfo
 	config        CrawlerConfig
+	capacity			int
 }
 
 // NodeKnows tores the collected adresses for a given ID
@@ -141,16 +118,11 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		ctx:           ctx,
 		cancelFunc:    cancel,
 		resultChannel: make(chan peer.AddrInfo, 1000),
-		rateLimit:     make(chan bool, config.Rate),
 		config:        config,
+		capacity:      config.QueueSize,
 	}
-	// Initialize token bucket
-	for index := 0; index < config.Rate; index++ {
-		w.rateLimit <- true
-	}
-
 	// Init the host, i.e., generate priv key and all that stuff
-	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2024)
+	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	opts := []libp2p.Option{libp2p.Identity(priv)}
 	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
@@ -158,17 +130,9 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	}
 	w.h = h
 
-	preimages, err := LoadPreimages(config.PreImagePath, config.NumPreImages)
-	if err != nil {
-		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
-		if !utils.AskYesNo() {
-			os.Exit(0)
-		}
-	}
-
-	w.ph = &PreImageHandler{
-		PreImages: preimages,
-	}
+	// w.ph = &PreImageHandler{
+	// 	PreImages: preimages,
+	// }
 
 	return w
 }
@@ -257,6 +221,9 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 
 func (w *IPFSWorker) AddPreimages(handler *PreImageHandler)  {
 	w.ph = handler
+}
+func (w *IPFSWorker) Capacity () int {
+	return w.capacity
 }
 
 // CrawlPeer crawls a specific ID

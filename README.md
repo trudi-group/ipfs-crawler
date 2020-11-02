@@ -100,14 +100,14 @@ Data example:
 ### Format of ```peerGraph```
 
 ```peerGraph``` is an edgelist, where each line in the file corresponds to one edge. A line has the form
-	
+
 	source multihash;target multihash;<target reachable?>
-	
+
 Two nodes are connected, if the crawler found the peer ```target multihash``` in the buckets of peer ```source multihash```.
 Example line:
 
 	QmY4N2q3kShvDnMy928SphJRXDEdAcJVDq5sjM5qLsnyHj;QmRXvASjWxqzPFDSvsqyzt9p6DyWNgZ8tVNqgNA4PTw1vk;false
-	
+
 which says that the peer with ID ```QmY4N...``` had an entry for peer ```QmRXvAS``` in its buckets and that the latter was not reachable by our crawler.
 Therefore, even though the two peers have an active connection (otherwise the latter peer would not be in the buckets of the former peer), the crawler could not connect to the second peer.
 Since many nodes reside behind NATs, this is not uncommon to see.
@@ -126,3 +126,7 @@ Therefore, the crawler can only connect to one IPFS bootstrap node and refuses a
 The environment variable that is used to change the behavior of libp2p is, for some reason, read before the main function of the crawler is executed. So in `start_crawl`, the crawler is started with:
 
 ```export LIBP2P_ALLOW_WEAK_RSA_KEYS="" && go run cmd/ipfs-crawler/main.go```
+
+## Socket limit
+
+ipfs-crawler uses a lot of sockets. On linux, this can result into "too many sockets" errors during connections. Please raise the maximum number of sockets on linux via ''' ulimit -n unlimited ''' or equivalent commands on different platforms
