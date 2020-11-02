@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
     flag "github.com/spf13/pflag"
+
 )
 
 type MainConfig struct {
@@ -63,6 +64,13 @@ const (
 // * Are relays used when connecting?
 func init() {
     // Set up defaults
+    // f, err := os.Create("memprofile")
+    // if err != nil {
+    //     log.Fatal("could not create memory profile: ", err)
+    // }
+    // defer f.Close()
+    // pprof.WriteHeapProfile(f)
+
     viper.SetDefault("loglevel", "debug")
     viper.SetDefault("useCache", true)
     viper.SetDefault("cacheFile", "nodes.cache")

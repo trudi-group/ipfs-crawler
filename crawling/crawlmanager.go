@@ -190,7 +190,8 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			break
 		}
 
-        idleTimer := time.NewTimer(1 * time.Minute)
+        // idleTimer := time.NewTimer(1 * time.Minute)
+        idleTimer.Reset(1 * time.Minute)
 		select {
 		case report := <-cm.ReportQueue:
 			// We have new information incomming
