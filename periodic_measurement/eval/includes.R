@@ -1,7 +1,7 @@
 # Includes, libraries and constants
 
 packages = c("data.table", "reshape2", "ggplot2", "scales",
-             "stringr", "pbapply", "igraph", "xtable", "jsonlite")
+             "stringr", "pbapply", "xtable", "jsonlite", "tidyr")
 
 # shamelessly copied from Github (https://gist.github.com/stevenworthington/3178163)
 # It loads all required packages and installs them if they're not present

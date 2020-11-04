@@ -20,6 +20,7 @@ Rscript transform_narrow_num_nodes_to_broad.R
 Rscript transform_narrow_av_to_broad.R
 cd ..
 
+mv data/*.json data/processed_data
 mv data/*.csv data/processed_data
 
 mv eval/figures/*.png /var/www/html/figs/

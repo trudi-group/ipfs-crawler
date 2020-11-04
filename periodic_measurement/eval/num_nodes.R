@@ -12,7 +12,7 @@ NumNodesSingleCrawl = function(filename) {
   dt = LoadDT(FullPath(filename))
   all = nrow(dt)
   setnames(dt, 3, "online")
-  online = nrow(dt[online == "true"])
+  online = nrow(dt[online == T])
   res = data.table(ts=extractStartDate(filename), all=all, online=online)
   rm(dt)
   return(res)
@@ -33,14 +33,30 @@ NumDistinctNodeTotal = function(crawls) {
 # Source the includes, as always
 source("includes.R")
 
+# Crawls should not be more than this [in seconds] apart to be classified 
+# as stemming from one measurement
+interCrawlDistance = 3600
+
 # Get the list of crawl files
 crawls = list.files(path=crawlDir, pattern=visitedPattern)
 numNodesDT = rbindlist(pblapply(crawls, NumNodesSingleCrawl))
+numNodesDT = numNodesDT[order(ts)]
 
-meltedDT = melt(numNodesDT, id=c("ts"))
+samecrawls = c(FALSE, diff(as.numeric(numNodesDT$ts)) > interCrawlDistance)
+numNodesDT$crawlno = cumsum(samecrawls)
 
-meltedDT = meltedDT[, .(avgcount = mean(value)), by="variable"]
-meltedDT$ts = rep(extractStartDate(crawls[1]), nrow(meltedDT))
+dates = numNodesDT[seq(1, nrow(numNodesDT), 3)]$ts
+
+meltedDT = setDT(melt(numNodesDT, id=c("crawlno", "ts")))
+
+write.table(meltedDT, file="plot_data/raw_num_nodes.csv", sep=";", row.names = F, append = T, col.names = T)
+
+meltedDT$ts = NULL
+meltedDT = meltedDT[, .(avgcount = mean(value)), by=.(variable, crawlno)]
+# meltedDT$ts = rep(extractStartDate(crawls[1]), nrow(meltedDT))
+## Not beautiful but functional
+meltedDT$ts = as.POSIXct(c(dates, dates), origin="1970-01-01")
+meltedDT$crawlno = NULL
 setcolorder(meltedDT, c("ts", "variable", "avgcount"))
 
 # Write the data.table to file to avoid computing it multiple times

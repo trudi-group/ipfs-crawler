@@ -10,7 +10,7 @@ maxbackofftime: 250 # Backoff time for connecting.
 minrequest: 10 # Minimum numbers of connections at all times
 numpreimages: 16777216 # Number of preimages
 numworker: 5 # Number of Workers
-outpath: output_data_crawls/ # Output path of written output
+outpath: periodic_measurement/data/ # Output path of written output
 preimagepath: precomputed_hashes/preimages.csv.zst # Path to preimages
 queuesize: 2000 # Size of the queue, also controls the
 sanity: false # Bool for activating sanity checks
