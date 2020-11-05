@@ -175,6 +175,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 	log.Debug("Adding bootstraps")
 	cm.toCrawl = append(cm.toCrawl, bootstraps...)
 	// idleTimer := time.NewTimer(1 * time.Minute)
+	handler := NewErrorHandler()
 	log.Trace("Going into loop")
 
 	ticker := time.NewTicker(20*time.Second)
@@ -205,7 +206,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Debug("Error while crawling")
 				// TODO: Error handling
-				continue
+				handler.handle(node, err)
 			} else {
 				cm.online[node.id] = true
 				cm.knows[node.id] = AddrInfoToID(node.knows)
@@ -247,6 +248,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 		}
 
 	}
+    handler.Print()
 	return cm.createReport()
 }
 
