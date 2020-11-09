@@ -63,6 +63,7 @@ require (
 	github.com/libp2p/go-socket-activation v0.0.2
 	github.com/libp2p/go-tcp-transport v0.2.1
 	github.com/libp2p/go-ws-transport v0.3.1
+	github.com/lucas-clemente/quic-go v0.18.1
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mailru/easyjson v0.7.0 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
