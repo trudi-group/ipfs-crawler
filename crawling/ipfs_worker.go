@@ -28,9 +28,9 @@ import (
 	libp2pquic "github.com/libp2p/go-libp2p-quic-transport"
 	tcp "github.com/libp2p/go-tcp-transport"
     ws "github.com/libp2p/go-ws-transport"
-	// noise "github.com/libp2p/go-libp2p-noise"
-	// secio "github.com/libp2p/go-libp2p-secio"
-	// tls "github.com/libp2p/go-libp2p-tls"
+	 noise "github.com/libp2p/go-libp2p-noise"
+	 secio "github.com/libp2p/go-libp2p-secio"
+	 tls "github.com/libp2p/go-libp2p-tls"
 )
 
 
@@ -129,22 +129,19 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		config:        config,
 		capacity:      config.QueueSize,
 	}
-	// Init the host, i.e., generate priv key and all that stuff
-	opts := []libp2p.Option{}
-	// priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	// opts := []libp2p.Option{libp2p.Identity(priv)}
-	// opts = append(opts, libp2p.Transport(libp2pquic.NewTransport))
-	// opts = append(opts, libp2p.Transport(tcp.NewTCPTransport))
-	// opts = append(opts, libp2p.Security(noise.ID, noise.New))
-	// opts = append(opts, libp2p.Security(tls.ID, tls.New))
-	// opts = append(opts, libp2p.Security(secio.ID, secio.New))
-    opts = append(opts, libp2p.ChainOptions(
-        libp2p.Transport(tcp.NewTCPTransport),
-        libp2p.Transport(ws.New),
-        libp2p.Transport(libp2pquic.NewTransport),
-        ))
 
-	h, err := libp2p.New(ctx, opts...)
+	protocols := libp2p.ChainOptions(
+        	libp2p.Transport(tcp.NewTCPTransport),
+        	libp2p.Transport(ws.New),
+        	libp2p.Transport(libp2pquic.NewTransport),
+        )
+	security := libp2p.ChainOptions(
+		libp2p.Security(noise.ID, noise.New),
+		libp2p.Security(tls.ID, tls.New),
+		libp2p.Security(secio.ID, secio.New),
+	)
+
+	h, err := libp2p.New(ctx, security, protocols)
 	if err != nil {
 		panic(err)
 	}
