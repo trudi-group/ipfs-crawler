@@ -1,7 +1,7 @@
 build:
 	go build cmd/ipfs-crawler/main.go
 	mv main cmd/ipfs-crawler/crawler
-	echo "export LIBP2P_ALLOW_WEAK_RSA_KEYS="" && export LIBP2P_SWARM_FD_LIMIT="4000" && ./cmd/ipfs-crawler/crawler" > start_crawl
+	echo "export LIBP2P_ALLOW_WEAK_RSA_KEYS="" && export LIBP2P_SWARM_FD_LIMIT="10000" && ./cmd/ipfs-crawler/crawler" > start_crawl
 	chmod u+x start_crawl
 
 preimages:
