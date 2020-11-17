@@ -49,7 +49,7 @@ dates = numNodesDT[seq(1, nrow(numNodesDT), 3)]$ts
 
 meltedDT = setDT(melt(numNodesDT, id=c("crawlno", "ts")))
 
-write.table(meltedDT, file="plot_data/raw_num_nodes.csv", sep=";", row.names = F, append = T, col.names = T)
+write.table(meltedDT, file="plot_data/raw_num_nodes.csv", sep=";", row.names = F, append = T, col.names = F)
 
 meltedDT$ts = NULL
 meltedDT = meltedDT[, .(avgcount = mean(value)), by=.(variable, crawlno)]
