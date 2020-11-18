@@ -46,6 +46,13 @@ func init() {
 	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
 	viper.SetDefault("NumPreImages", 16777216)
 	quic.RetireBugBackwardsCompatibilityMode = true
+    // Default protocols settings that ipfs uses. Due to change with further updates
+    viper.SetDefault("Tcp", true)
+    viper.SetDefault("Quic", true)
+    viper.SetDefault("Wsocket", true)
+    viper.SetDefault("Tls", true)
+    viper.SetDefault("Noise", true)
+    viper.SetDefault("Secio", false)
 }
 
 type CrawlerConfig struct {
@@ -54,6 +61,12 @@ type CrawlerConfig struct {
 	PreImagePath string
     NumPreImages int
     QueueSize int
+    Tls bool
+    Noise bool
+    Secio bool
+    Tcp bool
+    Quic bool
+    Wsocket bool
 }
 
 func configure() CrawlerConfig {
@@ -130,16 +143,8 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		capacity:      config.QueueSize,
 	}
 
-	protocols := libp2p.ChainOptions(
-        	libp2p.Transport(tcp.NewTCPTransport),
-        	libp2p.Transport(ws.New),
-        	libp2p.Transport(libp2pquic.NewTransport),
-        )
-	security := libp2p.ChainOptions(
-		libp2p.Security(noise.ID, noise.New),
-		libp2p.Security(tls.ID, tls.New),
-		libp2p.Security(secio.ID, secio.New),
-	)
+	protocols, err := configureProtocols(config)
+	security, err := configureSecurity(config)
 
 	h, err := libp2p.New(ctx, security, protocols)
 	if err != nil {
@@ -154,8 +159,42 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	return w
 }
 
-// Run starts the crawling
 
+func configureSecurity(config CrawlerConfig) (libp2p.Option, error) {
+    enabled := []libp2p.Option{}
+    if config.Tls == true {
+        log.Debug("TLS enabled")
+        enabled = append(enabled, libp2p.Security(tls.ID, tls.New))
+    }
+    if config.Noise == true {
+        log.Debug("Noise enabled")
+        enabled = append(enabled, libp2p.Security(noise.ID, noise.New))
+    }
+    if config.Secio == true {
+        log.Debug("Secio enabled")
+        enabled = append(enabled, libp2p.Security(secio.ID, secio.New))
+    }
+    return libp2p.ChainOptions(enabled...), nil
+}
+
+func configureProtocols(config CrawlerConfig) (libp2p.Option, error) {
+    enabled := []libp2p.Option{}
+    if config.Tcp == true {
+        log.Debug("TCP enabled")
+        enabled = append(enabled, libp2p.Transport(tcp.NewTCPTransport))
+    }
+    if config.Quic == true {
+        log.Debug("Quic enabled")
+        enabled = append(enabled, libp2p.Transport(libp2pquic.NewTransport))
+    }
+    if config.Wsocket == true {
+        log.Debug("WebSockets enabled")
+        enabled = append(enabled, libp2p.Transport(ws.New))
+    }
+    return libp2p.ChainOptions(enabled...), nil
+}
+
+// Run starts the crawling
 func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	// Strip addresses we cannot connect to anyways
 	recvPeer := stripLocalAddrs(*askPeer)

@@ -16,3 +16,11 @@ queuesize: 2000 # Size of the queue, also controls the
 sanity: false # Bool for activating sanity checks
 usecache: true # Bool for using a cache
 writetofileflag: true # Bool for writing to files
+# default security protocols for ipfs
+tls: true
+secio: false
+noise: true
+# default transport protocols
+tcp: true
+wsocket: true
+quic: true
