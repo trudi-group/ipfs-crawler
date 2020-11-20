@@ -25,6 +25,6 @@ mv data/*.csv data/processed_data
 
 mv eval/figures/*.png /var/www/html/figs/
 mv eval/*_broad.csv /var/www/html/data/
-
+mv eval/plot_data/last_crawl_av.csv /var/www/html/data/
 #sed -i -e "s/;/,/g" /var/www/html/data/num_nodes.csv
 #sed -i -e "s/;/,/g" /var/www/html/data/agent_versions.csv

@@ -26,14 +26,18 @@ truncatedDT$version = with(truncatedDT, reorder(version, -avgcount))
 
 truncatedDT$ts = as.POSIXct(truncatedDT$ts)
 
+nonTruncated = truncatedDT
+lastCrawl = nonTruncated[ts == max(ts, na.rm=T)]
+lastCrawl$ts = NULL
+pieCutoff = 10
+aggrLastCrawl = rbindlist(list(lastCrawl[1:pieCutoff], data.table(version="Others", avgcount=sum(lastCrawl[-(1:pieCutoff)]$avgcount))))
+
+wideav = transpose(aggrLastCrawl, make.names="version")
+write.table(wideav, "plot_data/last_crawl_av.csv", row.names=F, sep=",")
+
 ## To ease presentation, we only focus on the top clientCutOff versions
 truncatedDT = truncatedDT[, .SD[1:clientCutOff], by="ts"]
 
-# ## Bar chart for one single crawl
-# q = ggplot(truncatedDT, aes(x="", y=avgcount, fill=version)) +
-#   geom_bar(width=1, stat="identity", color="white", position="dodge") +
-#   xlab("") + ylab("Average count per crawl") +
-#   scale_y_continuous(breaks = scales::pretty_breaks(n = plotBreakNumber))
 
 q = ggplot(truncatedDT, aes(x=ts, y=avgcount, color=version, linetype=version)) + 
   geom_line() + geom_point() +
