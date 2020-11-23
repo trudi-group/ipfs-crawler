@@ -1,6 +1,6 @@
 # Evaluation: Create Statistics Based on Obtained Crawl Data
 
-Assume you have some ```.csv``` files from running a few crawls. In here are some tools to generated a .pdf with a lot of statistics on the crawl.
+Assume you have some ```.csv/.json``` files from running a few crawls. In here are some tools to generated a .pdf with a lot of statistics on the crawl.
 
 **Note that the evaluation may take several hours up to even a day, depending on how much crawl data you have!**
 
@@ -33,7 +33,7 @@ In Ubuntu, these are the necessary packages:
 #### R packages
 
 	Rscript -e "install.packages(c(\"data.table\", \"reshape2\", \"ggplot2\", \"scales\", \
-             \"tikzDevice\", \"stringr\", \"pbapply\", \"igraph\", "jsonlite", "tidyr"))"
+             \"tikzDevice\", \"stringr\", \"pbapply\", \"igraph\", \"jsonlite\", \"tidyr\"))"
 
 #### Python3 packages
 

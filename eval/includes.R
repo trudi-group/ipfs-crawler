@@ -105,6 +105,7 @@ LoadDT = function(fullpath, header=F) {
 ## Load one graph from .csv into memory
 loadGraph = function(fullpath, online) {
   dt = data.table(read.csv(fullpath, header = T, stringsAsFactors = F, sep=";"))
+  dt$TIMESTAMP=NULL
   if (online == T) {
     dt = dt[ONLINE == "true"]
   }

@@ -17,6 +17,8 @@ if [[ ! "$DATADIR" == /* ]]; then
 fi
 
 echo "Running eval-docker with data directory $DATADIR..."
+mkdir -p eval/plot_data/
+
 sudo docker run \
 	--mount type=bind,source=$DATADIR,target=/output_data_crawls \
 	--mount type=bind,source=$(pwd)/eval/plot_data,target=/eval/plot_data \
@@ -25,4 +27,4 @@ sudo docker run \
 	scriptkitty/ipfs-crawl-eval
 
 echo "Finished eval, copying report.pdf to $(pwd):"
-cp plot_data/report.pdf $(pwd)/report.pdf
+cp eval/plot_data/report.pdf $(pwd)/report.pdf
