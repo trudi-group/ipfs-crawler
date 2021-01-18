@@ -2,6 +2,8 @@
 
 **For more details, see [our paper](https://arxiv.org/abs/2002.07747). Academic code, run and read at your own risk**
 
+For a Live Version of the crawler results, check [Periodic Measurements of the IPFS Network](http://78.47.197.225/index.html)
+
 ## In a Nutshell
 
 This crawler is designed to enumerate all reachable nodes within the DHT/KAD-part of the IPFS network and return their neighborhood graph.
