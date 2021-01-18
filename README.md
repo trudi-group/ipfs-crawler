@@ -2,7 +2,7 @@
 
 **For more details, see [our paper](https://arxiv.org/abs/2002.07747). Academic code, run and read at your own risk**
 
-For a Live Version of the crawler results, check [Periodic Measurements of the IPFS Network](http://78.47.197.225/index.html)
+For a Live Version of the crawler results, check [Periodic Measurements of the IPFS Network](https://trudi.weizenbaum-institut.de/ipfs_analysis.html)
 
 ## In a Nutshell
 
