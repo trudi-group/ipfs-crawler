@@ -19,6 +19,7 @@ The crawler is optimized for speed, to generate as accurate snapshots as possibl
 It starts from the (configurable) bootstrap nodes, polls their buckets and continues to connect to every peer it has not seen so far.
 
 For an in-depth dive and discussion to the crawler and the obtained results, you can watch @scriptkitty's talk at ProtocolLabs:
+
 [![Link to YouTube](https://img.youtube.com/vi/jQI37Y25jwk/1.jpg)](https://www.youtube.com/watch?v=jQI37Y25jwk)
 
 **If you want to cite us, here's the BibTex (from [DBLP](https://dblp.uni-trier.de/rec/conf/networking/HenningsenFR020.html?view=bibtex&param=1)):**
