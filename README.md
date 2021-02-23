@@ -48,7 +48,7 @@ To run a single crawl simply do:
 	make build
 	./start_crawl
 
-**Important note:** For a successful crawl you need either to pull the preimages with ```git lfs pull``` or compute them yourself with ```make preimages```.
+**Important note:** We ship the pre-images necessary for a successful crawl, but you can compute them yourself with ```make preimages```.
 Note that the preimages only have to be computed *once*, it'll take some minutes, to compute them, though.
 ```start_crawl``` will be created at build time.
 
