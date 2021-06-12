@@ -8,7 +8,7 @@ import (
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	dht "github.com/scriptkitty/go-libp2p-kad-dht"
+	dht "github.com/libp2p/go-libp2p-kad-dht/net"
 
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
@@ -91,6 +91,7 @@ type IPFSWorker struct {
 	resultChannel chan peer.AddrInfo
 	config        CrawlerConfig
 	capacity			int
+    Events      *EventManager
 }
 
 // NodeKnows tores the collected adresses for a given ID
@@ -120,6 +121,7 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		resultChannel: make(chan peer.AddrInfo, 1000),
 		config:        config,
 		capacity:      config.QueueSize,
+        Events:        NewEventManager(),
 	}
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
@@ -137,6 +139,14 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	return w
 }
 
+
+func (w* IPFSWorker) GetHost() host.Host {
+    return w.h
+}
+
+func (w *IPFSWorker) SetHost(h host.Host){
+    w.h = h
+}
 // Run starts the crawling
 
 func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
@@ -209,6 +219,10 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	if err == nil {
 		av = agentVersion.(string)
 	}
+    log.WithFields(log.Fields{
+        "IPFSWorkerID": w.id,
+    }).Debug("Fire connected callbacks")
+    w.Events.Emit("connected", recvPeer)
 	infos := make(map[string]interface{})
 	infos["version"] = av
 
@@ -306,6 +320,7 @@ func (w *IPFSWorker) FullNeighborCrawl(ctx context.Context, remotePeerStream net
 		return returnedPeers, nil
 	}
 }
+
 
 // SendFindNode probes the remote node for neighborhood nodes.
 // :param ctx: controlling context

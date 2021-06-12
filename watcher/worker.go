@@ -2,11 +2,9 @@ package watcher
 
 import (
     cid "github.com/ipfs/go-cid"
-    // libp2p "github.com/libp2p/go-libp2p"
     "context"
     "time"
     host "github.com/libp2p/go-libp2p-core/host"
-	// crypto "github.com/libp2p/go-libp2p-core/crypto"
     pb "github.com/ipfs/go-bitswap/message/pb"
     wantlist "github.com/ipfs/go-bitswap/message"
     "github.com/libp2p/go-msgio"
@@ -62,7 +60,7 @@ func NewBSWorker (foreignHost host.Host) (*BSWorker, error) {
     for _, prot := range ProtocolStrings {
         worker.h.SetStreamHandler(prot, worker.handle)
     }
-    go worker.handleEvents(ctx)
+    // go worker.handleEvents(ctx)
     return worker, nil
 }
 
@@ -89,7 +87,7 @@ func(w *BSWorker) SetCidIn (feeder chan []cid.Cid){
 func(w *BSWorker) Call(remote peer.AddrInfo){
     cids := <- w.cidIn
     ctx, _ := context.WithTimeout(w.ctx, 60*time.Second)
-    log.Info("starting bs messages")
+    log.Debug("starting bs messages")
     stream, err := w.h.NewStream(ctx, remote.ID, ProtocolStrings...)
     if err != nil {
             event := &Event{
@@ -207,7 +205,7 @@ func (w *BSWorker) handleEvents(ctx context.Context){
                 delete(peerMap, peerEvent.Peer)
             }
         case msg := <- w.feedback:
-            log.Info("received Message")
+            log.Debug("received Message")
             peerMap[msg.Peer] <- msg //TODO: use overflow if peer not found
         }
     }
@@ -267,7 +265,7 @@ func (w* BSWorker) handle (stream network.Stream){
         event.Haves = msg.Haves()
         event.DontHaves = msg.DontHaves()
     }
-    log.WithField("Event", event).Info("Handle new event")
+    log.WithField("Event", event).Debug("Handle new event")
     w.feedback <- event
-    log.WithField("Event", event).Info("Event handled")
+    log.WithField("Event", event).Debug("Event handled")
 }
