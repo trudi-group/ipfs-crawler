@@ -1,21 +1,23 @@
 package main
 
 import (
+	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	utils "ipfs-crawler/common"
 	crawlLib "ipfs-crawler/crawling"
 
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	// "os/signal"
 	"strings"
-	"context"
 
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
-    flag "github.com/spf13/pflag"
-
 )
 
 type MainConfig struct {
@@ -35,6 +37,8 @@ type MainConfig struct {
 	CacheFile     string
 	 // Output Folder
 	 Outpath string
+	// Port on which prometheus metrics are exposed
+	PrometheusMetricsPort int
 	 PreImagePath string
 	 NumPreImages int
 }
@@ -79,14 +83,14 @@ func init() {
     viper.SetDefault("bootstrapFile", "configs/bootstrappeers.txt")
     viper.SetDefault("logLevel", "info")
     viper.SetDefault("queueSize", 64384)
+    viper.SetDefault("prometheusMetricsPort", 2112)
 }
 
 func main() {
 	// There's a clash between libp2p (2024) and ipfs (512) minimum key lenghts -> set it to the one used in IPFS.
 	// Since libp2p ist initialized earlier than our main() function we have to set it via the command line.
+
 	// Setting up config
-
-
     var saveconfig string
     var configFile string
     var help bool
@@ -124,6 +128,9 @@ func main() {
         viper.WriteConfigAs(saveconfig)
     }
 
+	// Set up prometheus handler
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(fmt.Sprintf(":%d", config.PrometheusMetricsPort), nil)
 
 	// Setting up the logging
 	formatter := new(log.TextFormatter)

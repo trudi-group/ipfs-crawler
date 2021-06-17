@@ -7,8 +7,9 @@ import (
 	// utils "ipfs-crawler/common"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
+	dht "github.com/libp2p/go-libp2p-kad-dht/net"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	dht "github.com/scriptkitty/go-libp2p-kad-dht"
+	"github.com/prometheus/client_golang/prometheus"
 
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
@@ -26,26 +27,46 @@ import (
 	"github.com/spf13/viper"
 )
 
+type CrawlerConfig struct {
+	MaxBackOffTime int
+	ConnectTimeout time.Duration
+	PreImagePath string
+	NumPreImages int
+	QueueSize int
+}
+
 
 var ProtocolStrings []protocol.ID = []protocol.ID{
 	"/ipfs/kad/1.0.0",
 	"/ipfs/kad/2.0.0",
 }
 
+
+// TODO: number of buckets = connectTimeout
+var connectDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+	Name:    "ipfs_crawler_worker_connect_duration_seconds",
+	Help:    "Histogram for the duration of Connect().",
+	Buckets: prometheus.LinearBuckets(0, 1, 45),
+})
+
+var rawNewIDs = prometheus.NewHistogram(prometheus.HistogramOpts{
+	Name:	"ipfs_crawler_worker_raw_obtained_IDs_per_peer",
+	Help:	"Raw number of obtained IDs from the ipfs_worker per crawled peer. Does not exclude previously seen IDs.",
+	Buckets: prometheus.LinearBuckets(0, 300, 10),
+})
+
+// TODO: Refer ConnectionTimeout
+
 func init() {
+	// Register metrics with prometheus
+	prometheus.MustRegister(connectDuration)
+	prometheus.MustRegister(rawNewIDs)
+
 	// Set defaults
 	viper.SetDefault("maxBackOffTime", 500)
 	viper.SetDefault("connectTimeout", 45*time.Second)
 	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
 	viper.SetDefault("NumPreImages", 16777216)
-}
-
-type CrawlerConfig struct {
-	MaxBackOffTime int
-	ConnectTimeout time.Duration
-	PreImagePath string
-    NumPreImages int
-    QueueSize int
 }
 
 func configure() CrawlerConfig {
@@ -162,7 +183,10 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	defer cancel()
 	// Connect() adheres to the context deadline and gives and error when the context deadline expired
 	// ToDo: It seems that this is ignored when the context previously expired
+
+	connTimer := prometheus.NewTimer(connectDuration)
 	err := w.h.Connect(ctx, recvPeer)
+	connTimer.ObserveDuration()
 	if err != nil {
 		// We couldn't connect to the target peer. This is either because it's unreachable or the context timed out.
 		// In that case, we give up and consider the peer as unreachable.
@@ -216,6 +240,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	streamProtocol := dhtStream.Protocol()
 	infos["protocol"] = streamProtocol
 	infos["knows_timestamp"] = time.Now().Format("2006-01-02T15:04:05-0700")
+	rawNewIDs.Observe(float64(len(returnedPeers)))
 	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers, info: infos}, nil
 }
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/prometheus/client_golang/prometheus"
 
 	// "os"
 	// "bufio"
@@ -22,8 +23,36 @@ import (
 	// "github.com/DataDog/zstd"
 )
 
+var	promMetricWaitingForRequests = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "ipfs_crawler_cmanager_waiting_for_request_queue_length",
+	Help: "Current number of requests that are awaiting responses.",
+})
+
+var	promMetricNumberOfNewIDs = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "ipfs_crawler_cmanager_number_new_IDs",
+	Help: "Current number of newly learned node IDs.",
+},
+[]string{
+	"reachable",
+})
+
+var	promMetricTokenBucketLength = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "ipfs_crawler_cmanager_token_bucket_free_capacity",
+	Help: "Free capacity of the token bucket used to rate limit the crawl.",
+})
+
+var	promMetricToCrawlLength = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "ipfs_crawler_cmanager_to_crawl",
+	Help: "Amount of node IDs in the to_crawl queue.",
+})
+
 // Set defaults for CrawlManager
 func init() {
+	prometheus.MustRegister(promMetricWaitingForRequests)
+	prometheus.MustRegister(promMetricNumberOfNewIDs)
+	prometheus.MustRegister(promMetricTokenBucketLength)
+	prometheus.MustRegister(promMetricToCrawlLength)
+	
 	// TODO: sort out necessary defaults
 	viper.SetDefault("FilenameTimeFormat", "02-01-06--15:04:05")
 	viper.SetDefault("OutPath", "output_data_crawls/")
@@ -189,7 +218,10 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			log.Info("Stopping crawl...")
 			break
 		}
-
+		// Prometheus stats
+		promMetricWaitingForRequests.Set(float64(cm.queueSize - len(cm.tokenBucket)))
+		promMetricTokenBucketLength.Set(float64(len(cm.tokenBucket)))
+		promMetricToCrawlLength.Set(float64(len(cm.toCrawl)))
         // idleTimer := time.NewTimer(1 * time.Minute)
         idleTimer.Reset(1 * time.Minute)
 		select {
@@ -210,6 +242,8 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				cm.online[node.id] = true
 				cm.knows[node.id] = AddrInfoToID(node.knows)
 				cm.info[node.id] = node.info // TODO: make the map merge together not overwrite each other
+				// Notify prometheus about a new online node
+				promMetricNumberOfNewIDs.WithLabelValues("reachable").Inc()
 				for _, p := range node.knows {
 					cm.handleInputNodes(p)
 				}
@@ -286,6 +320,8 @@ func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
 		return
 	}
 	// If not, we remember that we've seen it and add it to the work queue, so that a worker will eventually crawl it.
+	// Notify prometheus about newly learned peer
+	promMetricNumberOfNewIDs.WithLabelValues("all").Inc()
 	cm.crawled[node.ID] = node.Addrs
 	log.WithFields(log.Fields{"node": node.ID}).Debug("Adding newer seen node")
 	cm.toCrawl = append(cm.toCrawl, node)
