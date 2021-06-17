@@ -17,3 +17,8 @@ prometheusMetricsPort: 2112
 sanity: false # Bool for activating sanity checks
 usecache: true # Bool for using a cache
 writetofileflag: true # Bool for writing to files
+module:
+    monitor:
+        enabled: false
+        input: configs/d0xto_root_cids.txt
+        output: doxto.json
