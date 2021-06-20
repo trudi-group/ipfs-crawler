@@ -1,8 +1,18 @@
 # A Crawler for the Kademlia-part of the IPFS-network
 
-**For more details, see [our paper](https://arxiv.org/abs/2002.07747). Academic code, run and read at your own risk**
+**For more details, see [our paper](https://arxiv.org/abs/2002.07747). Academic code, run and read at your own risk.**
 
-For a Live Version of the crawler results, check [Periodic Measurements of the IPFS Network](https://trudi.weizenbaum-institut.de/ipfs_analysis.html)
+If you use our work, please **cite our papers**:
+
+Sebastian A. Henningsen, Martin Florian, Sebastian Rust, Björn Scheuermann:
+**Mapping the Interplanetary Filesystem.** *Networking 2020*: 289-297\
+[[BibTex]](https://dblp.uni-trier.de/rec/conf/networking/HenningsenFR020.html?view=bibtex)
+
+Sebastian A. Henningsen, Sebastian Rust, Martin Florian, Björn Scheuermann:
+**Crawling the IPFS Network.** *Networking 2020*: 679-680\
+[[BibTex]](https://dblp.uni-trier.de/rec/conf/networking/HenningsenRF020.html?view=bibtex)
+
+For a Live Version of the crawler results, check out our [Periodic Measurements of the IPFS Network](https://trudi.weizenbaum-institut.de/ipfs_analysis.html)
 
 ## In a Nutshell
 
@@ -21,25 +31,6 @@ It starts from the (configurable) bootstrap nodes, polls their buckets and conti
 For an in-depth dive and discussion to the crawler and the obtained results, you can watch @scriptkitty's talk at ProtocolLabs:
 
 [![Link to YouTube](https://img.youtube.com/vi/jQI37Y25jwk/1.jpg)](https://www.youtube.com/watch?v=jQI37Y25jwk)
-
-**If you want to cite us, here's the BibTex (from [DBLP](https://dblp.uni-trier.de/rec/conf/networking/HenningsenFR020.html?view=bibtex&param=1)):**
-
-	@inproceedings{DBLP:conf/networking/HenningsenFR020,
-  	author    = {Sebastian A. Henningsen and
-               Martin Florian and
-               Sebastian Rust and
-               Bj{\"{o}}rn Scheuermann},
-  	title     = {Mapping the Interplanetary Filesystem},
-  	booktitle = {2020 {IFIP} Networking Conference, Networking 2020, Paris, France,
-               June 22-26, 2020},
-  	pages     = {289--297},
-  	publisher = {{IEEE}},
-  	year      = {2020},
-  	url       = {https://ieeexplore.ieee.org/document/9142766},
-  	timestamp = {Thu, 23 Jul 2020 11:14:09 +0200},
-  	biburl    = {https://dblp.org/rec/conf/networking/HenningsenFR020.bib},
-  	bibsource = {dblp computer science bibliography, https://dblp.org}
-	}
 
 ## Run one or multiple crawls
 
