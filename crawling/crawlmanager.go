@@ -41,17 +41,11 @@ var	promMetricTokenBucketLength = prometheus.NewGauge(prometheus.GaugeOpts{
 	Help: "Free capacity of the token bucket used to rate limit the crawl.",
 })
 
-var	promMetricToCrawlLength = prometheus.NewGauge(prometheus.GaugeOpts{
-	Name: "ipfs_crawler_cmanager_to_crawl",
-	Help: "Amount of node IDs in the to_crawl queue.",
-})
-
 // Set defaults for CrawlManager
 func init() {
 	prometheus.MustRegister(promMetricWaitingForRequests)
 	prometheus.MustRegister(promMetricNumberOfNewIDs)
 	prometheus.MustRegister(promMetricTokenBucketLength)
-	prometheus.MustRegister(promMetricToCrawlLength)
 	
 	// TODO: sort out necessary defaults
 	viper.SetDefault("FilenameTimeFormat", "02-01-06--15:04:05")
@@ -208,6 +202,8 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 
 	ticker := time.NewTicker(20*time.Second)
 	defer ticker.Stop()
+	prometheusTicker := time.NewTicker(time.Second)
+	defer prometheusTicker.Stop()
     idleTimer := time.NewTimer(1 * time.Minute)
     defer idleTimer.Stop()
 	for {
@@ -218,10 +214,6 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			log.Info("Stopping crawl...")
 			break
 		}
-		// Prometheus stats
-		promMetricWaitingForRequests.Set(float64(cm.queueSize - len(cm.tokenBucket)))
-		promMetricTokenBucketLength.Set(float64(len(cm.tokenBucket)))
-		promMetricToCrawlLength.Set(float64(len(cm.toCrawl)))
         // idleTimer := time.NewTimer(1 * time.Minute)
         idleTimer.Reset(1 * time.Minute)
 		select {
@@ -271,6 +263,11 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				"Waiting for requests":	cm.queueSize - len(cm.tokenBucket),
 				"To-crawl-queue":		len(cm.toCrawl),
 				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
+
+			case <-prometheusTicker.C:
+				// Prometheus stats
+				promMetricWaitingForRequests.Set(float64(cm.queueSize - len(cm.tokenBucket)))
+				promMetricTokenBucketLength.Set(float64(len(cm.tokenBucket)))
 
 		case <-idleTimer.C:
 			// log.Debug("###TIMER###")
