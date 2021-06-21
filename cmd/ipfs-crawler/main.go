@@ -6,7 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	utils "ipfs-crawler/common"
 	crawlLib "ipfs-crawler/crawling"
-
+    watcher "ipfs-crawler/watcher"
 	"bufio"
 	"context"
 	"fmt"
@@ -41,6 +41,12 @@ type MainConfig struct {
 	PrometheusMetricsPort int
 	 PreImagePath string
 	 NumPreImages int
+}
+
+type MonitorConfig struct {
+    Enabled bool
+    Input string
+    Output string
 }
 
 const (
@@ -84,6 +90,8 @@ func init() {
     viper.SetDefault("logLevel", "info")
     viper.SetDefault("queueSize", 64384)
     viper.SetDefault("prometheusMetricsPort", 2112)
+    viper.SetDefault("module.monitor.enabled", false)
+
 }
 
 func main() {
@@ -104,6 +112,10 @@ func main() {
     flag.String("CanaryFile", "", "Path to canary file")
     flag.Bool("Sanity", true, "Use canary checks")
     flag.Bool("WriteToFile", true, "help message for flagname")
+    //Create Flags for Bitswap monitoring module
+    flag.Bool("UseMonitor", false, "activate BitSwap monitoring")
+    flag.String("Cids", "", "Path to the monitored cids")
+    flag.String("CidsOut","", "Path to the cid monitoring output file")
     // Setup flags which don't belong into the config
     flag.StringVar(&saveconfig, "saveconfig", "", "save current config to path")
     flag.StringVar(&configFile, "config", "", "Path to config file.")
@@ -118,6 +130,10 @@ func main() {
     viper.BindPFlag("CanaryFile",flag.Lookup("CanaryFile"))
     viper.BindPFlag("Sanity",flag.Lookup("Sanity"))
     viper.BindPFlag("WriteToFileFlag",flag.Lookup("WriteToFile"))
+    // viper binds for cid monitoring
+    viper.BindPFlag("module.monitor.Enable", flag.Lookup("UseMonitor"))
+    viper.BindPFlag("module.monitor.Input", flag.Lookup("Cids"))
+    viper.BindPFlag("module.monitor.Output", flag.Lookup("CidsOut"))
 
 	config := setupViper()
     if help {
@@ -145,6 +161,14 @@ func main() {
 		panic(err)
 	}
 	log.SetLevel(logLevel)
+
+    // get monitoring config
+    var monitorcfg MonitorConfig
+    err = viper.UnmarshalKey("module.monitor",&monitorcfg)
+	if err != nil {
+		log.WithField("error", err).Error("Cannot read monitoring config, disable for now")
+	}
+    // fmt.Println(monitorcfg)
 
 	// Let's go!
 	log.Info("Thank you for running our IPFS Crawler!")
@@ -181,10 +205,24 @@ func main() {
 	handler := crawlLib.PreImageHandler{
 		PreImages: preimages,
 	}
+    // create BitSwap Pipeline
+    var bsmanager *watcher.BSManager
+    bsmanager = watcher.NewBSManager()
+    if monitorcfg.Enabled {
+        cids := watcher.ReadCids(monitorcfg.Input)
+        bsmanager.AddCid(cids)
+        go bsmanager.Start(context.Background())
+    }
 	log.WithField("numberOfWorkers", config.NumWorker).Info("Creating workers...")
 	for i := 0; i < config.NumWorker; i++ {
 		worker := crawlLib.NewIPFSWorker(0, context.Background())
 		worker.AddPreimages(&handler)
+        // if use monitor: create monitoring worker with foreign host, and connect monitoring worker with connected event
+        if monitorcfg.Enabled {
+            bsworker, _ := watcher.NewBSWorker(worker.GetHost())
+            bsmanager.AddWorker(bsworker)
+            worker.Events.Subscribe("connected", bsworker)
+        }
 		cm.AddWorker(worker)
 	}
 
@@ -209,7 +247,10 @@ func main() {
 		crawlLib.SaveNodeCache(report, config.CacheFile)
 		log.WithField("File", config.CacheFile).Info("Online nodes saved in cache")
 	}
-
+    if monitorcfg.Enabled {
+        cidLog := bsmanager.GetReport()
+        watcher.ToJson(cidLog, monitorcfg.Output)
+    }
 	// for _, p := range bootstrappeers {
 	// 	log.WithField("addr", p).Debug("Adding bootstrap peer to crawl queue.")
 	// 	// fmt.Printf("[%s] Adding bootstrap peer to crawl queue: %s\n", Timestamp(), ainfo)
