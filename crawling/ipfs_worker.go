@@ -31,17 +31,10 @@ import (
 type CrawlerConfig struct {
 	MaxBackOffTime int
 	ConnectTimeout time.Duration
-	PreImagePath string
-	NumPreImages int
 	QueueSize int
+	ProtocolStrings []protocol.ID `mapstructure: "protocolStrings"`
+	UserAgent string
 }
-
-
-var ProtocolStrings []protocol.ID = []protocol.ID{
-	"/ipfs/kad/1.0.0",
-	"/ipfs/kad/2.0.0",
-}
-
 
 // TODO: number of buckets = connectTimeout
 var connectDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -66,13 +59,15 @@ func init() {
 	// Set defaults
 	viper.SetDefault("maxBackOffTime", 500)
 	viper.SetDefault("connectTimeout", 45*time.Second)
-	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
-	viper.SetDefault("NumPreImages", 16777216)
+	viper.SetDefault("protocolStrings", []protocol.ID{
+		"/ipfs/kad/1.0.0",
+		"/ipfs/kad/2.0.0",
+	})
 }
 
 func configure() CrawlerConfig {
 	var config CrawlerConfig
-	err := viper.Unmarshal(&config)
+	err := viper.UnmarshalKey("worker", &config)
 	if err != nil {
 		panic(err)
 	}
@@ -147,7 +142,7 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	}
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	opts := []libp2p.Option{libp2p.Identity(priv)}
+	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.UserAgent(config.UserAgent)}
 	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		panic(err)
@@ -210,7 +205,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	}
 	// Create a new stream
 	// Whereas NewStream() does not care if the context timed out.
-	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, ProtocolStrings...)
+	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, w.config.ProtocolStrings...)
 	if err != nil {
 		// ToDo: Better error handling
 		log.WithFields(log.Fields{
