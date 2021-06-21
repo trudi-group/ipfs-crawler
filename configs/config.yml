@@ -13,6 +13,7 @@ numworker: 5 # Number of Workers
 outpath: output_data_crawls/ # Output path of written output
 preimagepath: precomputed_hashes/preimages.csv.zst # Path to preimages
 queuesize: 2000 # Size of the queue, also controls the
+prometheusMetricsPort: 2112
 sanity: false # Bool for activating sanity checks
 usecache: true # Bool for using a cache
 writetofileflag: true # Bool for writing to files
