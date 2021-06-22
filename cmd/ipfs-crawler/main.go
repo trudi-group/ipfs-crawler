@@ -24,10 +24,8 @@ import (
 type MainConfig struct {
     // Time format of log entries.
 	LogTimeFormat string
-    // File which contains the bootstrap peers
-	BootstrapFile string
     // Buffersize of each queue that we are using for communication between threads
-	QueueSize     int
+	BufferSize     int
     // Log level. Debug contains a lot but is very spammy
 	LogLevel      string
     // Indicates whether nodes should be cached during crawl runs to speed up the next successive crawl
@@ -58,10 +56,7 @@ const (
 	// logTimeFormat = "15:04:05"
 	// Log level. Debug contains a lot but is very spammy
 	// logLevel = log.InfoLevel
-	// File which contains the bootstrap peers
-	// bootstrapFile = "configs/bootstrappeers.txt"
 	// Buffersize of each queue that we are using for communication between threads
-	// queueSize = 64384
 )
 
 // FOR TESTING PURPOSES: OUR LOCAL NODE
@@ -84,9 +79,8 @@ func init() {
     viper.SetDefault("cacheFile", "nodes.cache")
     viper.SetDefault("crawloptions.numworkers", 8)
     viper.SetDefault("logTimeFormat", "15:04:05")
-    viper.SetDefault("bootstrapFile", "configs/bootstrappeers.txt")
     viper.SetDefault("logLevel", "info")
-    viper.SetDefault("queueSize", 64384)
+    viper.SetDefault("bufferSize", 64384)
     viper.SetDefault("prometheusMetricsPort", 2112)
     viper.SetDefault("module.monitor.enabled", false)
 
@@ -102,7 +96,6 @@ func main() {
     var help bool
     // setup and bind flags to the viper config. Don't use flags default values they are thrown away, but we have to set them. Viper defaults are authoritative.
 	flag.String("loglevel", "", "Set LogLevel")
-    flag.String("bootstrapFile", "", "Path to bootstrapsfile")
     flag.String("cacheFile", "", "Set cache")
     flag.Bool("useCache", true, "Use cache")
     flag.String("OutPath", "", "Path for output")
@@ -120,7 +113,6 @@ func main() {
     flag.BoolVar(&help, "help", false, "Print usage.")
     flag.Parse()
     viper.BindPFlag("loglevel",flag.Lookup("loglevel"))
-    viper.BindPFlag("bootstrapFile",flag.Lookup("bootstrapFile"))
     viper.BindPFlag("cacheFile",flag.Lookup("cacheFile"))
     viper.BindPFlag("useCache",flag.Lookup("useCache"))
     viper.BindPFlag("OutPath",flag.Lookup("OutPath"))
@@ -192,7 +184,7 @@ func main() {
 	}
 
 	// Second, load preimageHandler
-	cm := crawlLib.NewCrawlManagerV2(config.QueueSize)
+	cm := crawlLib.NewCrawlManagerV2(config.BufferSize)
 	preimages, err := crawlLib.LoadPreimages(config.PreImagePath, config.NumPreImages)
 	if err != nil {
 		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
