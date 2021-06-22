@@ -1,22 +1,30 @@
-bootstrapfile: configs/bootstrappeers.txt # Path to the file with peers for bootstrapping
-cachefile: nodes.cache # Path to cache file
-canaryfile: configs/canary.txt # Path to file with peers for sanity checks
-
-filenametimeformat: 02-01-06--15:04:05 # Naming format for output files
 loglevel: info # Level for logging
 logtimeformat: "15:04:05" # Format of Log
-lowerratelimit: 0.5 # Lower limit for raising the token bucket
-minrequest: 10 # Minimum numbers of connections at all times
-numworker: 5 # Number of Workers
-outpath: output_data_crawls/ # Output path of written output
 
 prometheusMetricsPort: 2112
-sanity: false # Bool for activating sanity checks
-usecache: true # Bool for using a cache
-writetofileflag: true # Bool for writing to files
 
 preimagepath: precomputed_hashes/preimages.csv.zst # Path to preimages
 numpreimages: 16777216 # Number of preimages
+
+cachefile: nodes.cache # Path to cache file
+cachingEnabled: true # Bool for using a cache
+
+crawloptions:
+  numworkers: 5 # Number of crawlers that run simultaneously
+  canaryfile: configs/canary.txt # Path to file with peers for sanity checks
+  sanityEnabled: false # Bool for activating sanity checks
+
+  bootstrappeers:
+    - /dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN
+    - /dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa
+    - /dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb
+    - /dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt
+    - /ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ
+
+  dataOutput:
+    dataOutputEnabled: true # Should peerlists and peer graphs be written to file?
+    outpath: output_data_crawls/ # Where to?
+    filenameTimeFormat: 02-01-06--15:04:05 # How should the timestamps be formatted?
 
 worker:
   connecttimeout: 180s # Time for timeout when connecting
