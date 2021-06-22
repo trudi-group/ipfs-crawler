@@ -3,14 +3,15 @@ package main
 import (
 	"net/http"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	utils "ipfs-crawler/common"
-	crawlLib "ipfs-crawler/crawling"
-    watcher "ipfs-crawler/watcher"
 	"bufio"
 	"context"
 	"fmt"
 	"os"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	utils "ipfs-crawler/common"
+	crawlLib "ipfs-crawler/crawling"
+	watcher "ipfs-crawler/watcher"
 	// "os/signal"
 	"strings"
 
@@ -21,14 +22,10 @@ import (
 )
 
 type MainConfig struct {
-    // Number of Workers attached.
-	NumWorker     int
     // Time format of log entries.
 	LogTimeFormat string
-    // File which contains the bootstrap peers
-	BootstrapFile string
     // Buffersize of each queue that we are using for communication between threads
-	QueueSize     int
+	BufferSize     int
     // Log level. Debug contains a lot but is very spammy
 	LogLevel      string
     // Indicates whether nodes should be cached during crawl runs to speed up the next successive crawl
@@ -50,7 +47,6 @@ type MonitorConfig struct {
 }
 
 const (
-	// numWorkers = 1
 	// connectTimeout = 2 * time.Second
 	// Indicates whether nodes should be cached during crawl runs to speed up the next successive crawl
 	// useCache = true
@@ -60,10 +56,7 @@ const (
 	// logTimeFormat = "15:04:05"
 	// Log level. Debug contains a lot but is very spammy
 	// logLevel = log.InfoLevel
-	// File which contains the bootstrap peers
-	// bootstrapFile = "configs/bootstrappeers.txt"
 	// Buffersize of each queue that we are using for communication between threads
-	// queueSize = 64384
 )
 
 // FOR TESTING PURPOSES: OUR LOCAL NODE
@@ -84,12 +77,13 @@ func init() {
     viper.SetDefault("loglevel", "debug")
     viper.SetDefault("useCache", true)
     viper.SetDefault("cacheFile", "nodes.cache")
-    viper.SetDefault("numWorker", 8)
+    viper.SetDefault("crawloptions.numworkers", 8)
     viper.SetDefault("logTimeFormat", "15:04:05")
-    viper.SetDefault("bootstrapFile", "configs/bootstrappeers.txt")
     viper.SetDefault("logLevel", "info")
-    viper.SetDefault("queueSize", 64384)
+    viper.SetDefault("bufferSize", 64384)
     viper.SetDefault("prometheusMetricsPort", 2112)
+	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
+	viper.SetDefault("NumPreImages", 16777216)
     viper.SetDefault("module.monitor.enabled", false)
 
 }
@@ -104,7 +98,6 @@ func main() {
     var help bool
     // setup and bind flags to the viper config. Don't use flags default values they are thrown away, but we have to set them. Viper defaults are authoritative.
 	flag.String("loglevel", "", "Set LogLevel")
-    flag.String("bootstrapFile", "", "Path to bootstrapsfile")
     flag.String("cacheFile", "", "Set cache")
     flag.Bool("useCache", true, "Use cache")
     flag.String("OutPath", "", "Path for output")
@@ -122,7 +115,6 @@ func main() {
     flag.BoolVar(&help, "help", false, "Print usage.")
     flag.Parse()
     viper.BindPFlag("loglevel",flag.Lookup("loglevel"))
-    viper.BindPFlag("bootstrapFile",flag.Lookup("bootstrapFile"))
     viper.BindPFlag("cacheFile",flag.Lookup("cacheFile"))
     viper.BindPFlag("useCache",flag.Lookup("useCache"))
     viper.BindPFlag("OutPath",flag.Lookup("OutPath"))
@@ -194,7 +186,7 @@ func main() {
 	}
 
 	// Second, load preimageHandler
-	cm := crawlLib.NewCrawlManagerV2(config.QueueSize)
+	cm := crawlLib.NewCrawlManagerV2(config.BufferSize)
 	preimages, err := crawlLib.LoadPreimages(config.PreImagePath, config.NumPreImages)
 	if err != nil {
 		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
@@ -213,8 +205,11 @@ func main() {
         bsmanager.AddCid(cids)
         go bsmanager.Start(context.Background())
     }
-	log.WithField("numberOfWorkers", config.NumWorker).Info("Creating workers...")
-	for i := 0; i < config.NumWorker; i++ {
+
+    // Create the crawl-workers
+    numWorkers := viper.GetInt("crawloptions.numworkers")
+	log.WithField("numberOfWorkers", numWorkers).Info("Creating workers...")
+	for i := 0; i < numWorkers; i++ {
 		worker := crawlLib.NewIPFSWorker(0, context.Background())
 		worker.AddPreimages(&handler)
         // if use monitor: create monitoring worker with foreign host, and connect monitoring worker with connected event
@@ -226,11 +221,24 @@ func main() {
 		cm.AddWorker(worker)
 	}
 
+	// Load bootstrappeers from config
+	var bs []string
+	viper.UnmarshalKey("crawloptions.bootstrappeers", &bs)
 
-	bootstrappeers, err := LoadBootstrapList(config.BootstrapFile)
-	if err != nil {
-		panic(err)
+	// Convert the strings to node.AddrInfos
+	var bootstrappeers []*peer.AddrInfo
+	for _, maddr := range bs {
+		pinfo, err := utils.ParsePeerString(maddr)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"multiaddr": maddr,
+				"err": err,
+			}).Warning("Error parsing bootstrap peers.")
+		}
+		bootstrappeers = append(bootstrappeers, pinfo)
 	}
+	
+	// Add cached nodes if we have them
 	if config.UseCache {
 		cachedNodes, err := crawlLib.RestoreNodeCache(config.CacheFile)
 		if err == nil {
@@ -238,6 +246,8 @@ func main() {
 			bootstrappeers = append(bootstrappeers, cachedNodes...)
 		}
 	}
+	
+	// Start the crawl
 	report := cm.CrawlNetwork(bootstrappeers)
 	startStamp := report.StartDate
 	endStamp := report.EndDate
@@ -305,7 +315,7 @@ func LoadBootstrapList(path string) ([]*peer.AddrInfo, error) {
 	defer file.Close()
 
 	// Read the file line by line and parse the multiaddress string
-	var bootstrapMA []*peer.AddrInfo
+	var bootstrappeers []*peer.AddrInfo
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -318,9 +328,8 @@ func LoadBootstrapList(path string) ([]*peer.AddrInfo, error) {
 			log.WithField("err", err).Error("Error parsing bootstrap peers.")
 			return nil, err
 		}
-		bootstrapMA = append(bootstrapMA, ainfo)
+		bootstrappeers = append(bootstrappeers, ainfo)
 	}
 
-	return bootstrapMA, nil
-
+	return bootstrappeers, nil
 }

@@ -1,8 +1,7 @@
 package crawling
 
 import (
-	// utils "ipfs-crawler/common"
-	// "fmt"
+
 	// "context"
 	"time"
 
@@ -55,22 +54,26 @@ func init() {
 	viper.SetDefault("Sanity", false)
 }
 
+type CMOutputConfig struct {
+	WriteToFileFlag bool `mapstructure:"dataOutputEnabled""`
+	OutPath string `mapstructure:"outpath""`
+	FilenameTimeFormat string `mapstructure:"filenameTimeFormat""`
+}
 // Config Object for CrawlManager
 type CrawlManagerConfig struct {
-    FilenameTimeFormat string
-    OutPath string
-    WriteToFileFlag bool
-    CanaryFile string
-    Sanity bool
+	Output CMOutputConfig `mapstructure:"dataOutput"`
+    CanaryFile string `mapstructure:"canaryfile"`
+    Sanity bool `mapstructure:"sanityEnabled"`
 }
 
 func configureCrawlerManager() CrawlManagerConfig {
     var config CrawlManagerConfig
-    err := viper.Unmarshal(&config)
-	if err != nil {
-		panic(err)
+
+    err := viper.UnmarshalKey("crawloptions", &config)
+    if err != nil {
+    	panic(err)
 	}
-    return config
+	return config
 }
 
 //Interface for a crawlWorker
@@ -195,6 +198,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 		log.Error("We cannot start a crawl without workers")
 		return nil
 	}
+
 	log.Debug("Adding bootstraps")
 	cm.toCrawl = append(cm.toCrawl, bootstraps...)
 	// idleTimer := time.NewTimer(1 * time.Minute)
@@ -327,13 +331,13 @@ func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
 func (cm *CrawlManagerV2) createReport() *CrawlOutput {
 	// Output a crawl report into the log
 	log.WithFields(log.Fields{
-		"start time":			cm.startTime.Format(cm.config.FilenameTimeFormat),
-		"end time:":			time.Now().Format(cm.config.FilenameTimeFormat),
+		"start time":			cm.startTime.Format(cm.config.Output.FilenameTimeFormat),
+		"end time:":			time.Now().Format(cm.config.Output.FilenameTimeFormat),
 		"number of nodes": 		len(cm.crawled),
 		"connectable nodes": 	len(cm.online),
 	}).Info("Crawl finished. Summary of results.")
 
-	out :=  CrawlOutput{StartDate:cm.startTime.Format(cm.config.FilenameTimeFormat), EndDate:time.Now().Format(cm.config.FilenameTimeFormat), Nodes: map[peer.ID]*CrawledNode{}}
+	out :=  CrawlOutput{StartDate:cm.startTime.Format(cm.config.Output.FilenameTimeFormat), EndDate:time.Now().Format(cm.config.Output.FilenameTimeFormat), Nodes: map[peer.ID]*CrawledNode{}}
 	for node, Addresses := range cm.crawled {
 		var status CrawledNode
 		status.NID = node
