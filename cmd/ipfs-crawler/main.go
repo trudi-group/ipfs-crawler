@@ -82,6 +82,8 @@ func init() {
     viper.SetDefault("logLevel", "info")
     viper.SetDefault("bufferSize", 64384)
     viper.SetDefault("prometheusMetricsPort", 2112)
+	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
+	viper.SetDefault("NumPreImages", 16777216)
     viper.SetDefault("module.monitor.enabled", false)
 
 }
