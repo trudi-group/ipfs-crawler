@@ -7,8 +7,10 @@ import (
 	// utils "ipfs-crawler/common"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
-	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	dht "github.com/libp2p/go-libp2p-kad-dht/net"
+	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
+	"github.com/prometheus/client_golang/prometheus"
+
 
 	// "github.com/ipfs/go-datastore"
 	"math/rand"
@@ -26,31 +28,46 @@ import (
 	"github.com/spf13/viper"
 )
 
-
-var ProtocolStrings []protocol.ID = []protocol.ID{
-	"/ipfs/kad/1.0.0",
-	"/ipfs/kad/2.0.0",
-}
-
-func init() {
-	// Set defaults
-	viper.SetDefault("maxBackOffTime", 500)
-	viper.SetDefault("connectTimeout", 45*time.Second)
-	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
-	viper.SetDefault("NumPreImages", 16777216)
-}
-
 type CrawlerConfig struct {
 	MaxBackOffTime int
 	ConnectTimeout time.Duration
-	PreImagePath string
-    NumPreImages int
-    QueueSize int
+	QueueSize int
+	ProtocolStrings []protocol.ID `mapstructure: "protocolStrings"`
+	UserAgent string
+}
+
+// TODO: number of buckets = connectTimeout
+var connectDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+	Name:    "ipfs_crawler_worker_connect_duration_seconds",
+	Help:    "Histogram for the duration of Connect().",
+	Buckets: prometheus.LinearBuckets(0, 1, 45),
+})
+
+var rawNewIDs = prometheus.NewHistogram(prometheus.HistogramOpts{
+	Name:	"ipfs_crawler_worker_raw_obtained_IDs_per_peer",
+	Help:	"Raw number of obtained IDs from the ipfs_worker per crawled peer. Does not exclude previously seen IDs.",
+	Buckets: prometheus.LinearBuckets(0, 300, 10),
+})
+
+// TODO: Refer ConnectionTimeout
+
+func init() {
+	// Register metrics with prometheus
+	prometheus.MustRegister(connectDuration)
+	prometheus.MustRegister(rawNewIDs)
+
+	// Set defaults
+	viper.SetDefault("maxBackOffTime", 500)
+	viper.SetDefault("connectTimeout", 45*time.Second)
+	viper.SetDefault("protocolStrings", []protocol.ID{
+		"/ipfs/kad/1.0.0",
+		"/ipfs/kad/2.0.0",
+	})
 }
 
 func configure() CrawlerConfig {
 	var config CrawlerConfig
-	err := viper.Unmarshal(&config)
+	err := viper.UnmarshalKey("worker", &config)
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +142,7 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	}
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	opts := []libp2p.Option{libp2p.Identity(priv)}
+	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.UserAgent(config.UserAgent)}
 	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		panic(err)
@@ -172,7 +189,10 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	defer cancel()
 	// Connect() adheres to the context deadline and gives and error when the context deadline expired
 	// ToDo: It seems that this is ignored when the context previously expired
+
+	connTimer := prometheus.NewTimer(connectDuration)
 	err := w.h.Connect(ctx, recvPeer)
+	connTimer.ObserveDuration()
 	if err != nil {
 		// We couldn't connect to the target peer. This is either because it's unreachable or the context timed out.
 		// In that case, we give up and consider the peer as unreachable.
@@ -185,7 +205,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	}
 	// Create a new stream
 	// Whereas NewStream() does not care if the context timed out.
-	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, ProtocolStrings...)
+	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, w.config.ProtocolStrings...)
 	if err != nil {
 		// ToDo: Better error handling
 		log.WithFields(log.Fields{
@@ -230,6 +250,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	streamProtocol := dhtStream.Protocol()
 	infos["protocol"] = streamProtocol
 	infos["knows_timestamp"] = time.Now().Format("2006-01-02T15:04:05-0700")
+	rawNewIDs.Observe(float64(len(returnedPeers)))
 	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers, info: infos}, nil
 }
 
