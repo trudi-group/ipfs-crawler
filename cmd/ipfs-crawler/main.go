@@ -199,10 +199,11 @@ func main() {
     // create BitSwap Pipeline
     var bsmanager *watcher.BSManager
     bsmanager = watcher.NewBSManager()
+    bscon, bscancel := context.WithCancel(context.Background())
     if monitorcfg.Enabled {
         cids := watcher.ReadCids(monitorcfg.Input)
         bsmanager.AddCid(cids)
-        go bsmanager.Start(context.Background())
+        go bsmanager.Start(bscon)
     }
 	log.WithField("numberOfWorkers", config.NumWorker).Info("Creating workers...")
 	for i := 0; i < config.NumWorker; i++ {
@@ -239,6 +240,8 @@ func main() {
 		log.WithField("File", config.CacheFile).Info("Online nodes saved in cache")
 	}
     if monitorcfg.Enabled {
+        bscancel()
+        bsmanager.Wait()
         cidLog := bsmanager.GetReport()
         watcher.ToJson(cidLog, monitorcfg.Output)
     }
