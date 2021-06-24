@@ -74,7 +74,6 @@ func init() {
     // defer f.Close()
     // pprof.WriteHeapProfile(f)
 
-    viper.SetDefault("loglevel", "debug")
     viper.SetDefault("useCache", true)
     viper.SetDefault("cacheFile", "nodes.cache")
     viper.SetDefault("crawloptions.numworkers", 8)
@@ -85,6 +84,9 @@ func init() {
 	viper.SetDefault("PreImagePath", "precomputed_hashes/preimages.csv")
 	viper.SetDefault("NumPreImages", 16777216)
     viper.SetDefault("module.monitor.enabled", false)
+    viper.AutomaticEnv()
+    replacer := strings.NewReplacer(".", "_")
+    viper.SetEnvKeyReplacer(replacer)
 
 }
 
@@ -238,7 +240,7 @@ func main() {
 		}
 		bootstrappeers = append(bootstrappeers, pinfo)
 	}
-	
+
 	// Add cached nodes if we have them
 	if config.UseCache {
 		cachedNodes, err := crawlLib.RestoreNodeCache(config.CacheFile)
@@ -247,7 +249,7 @@ func main() {
 			bootstrappeers = append(bootstrappeers, cachedNodes...)
 		}
 	}
-	
+
 	// Start the crawl
 	report := cm.CrawlNetwork(bootstrappeers)
 	startStamp := report.StartDate
@@ -293,6 +295,8 @@ func setupViper() MainConfig {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./configs")
+    viper.AddConfigPath("/configs")
+    viper.AddConfigPath("/ipfs/configs")
 
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
