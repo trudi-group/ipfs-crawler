@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  crawler:
+    build: .
+    volumes:
+        - "./:/ipfs"
+    command: ipfs_crawler
+    ports:
+        - 2112:2112
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+        - "127.0.0.1:9090:9090"
+    volumes:
+        - "./configs/prometheus_config/prometheus.dockercompose.yml:/etc/prometheus/prometheus.yml"
