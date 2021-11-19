@@ -7,7 +7,7 @@ import (
 	// utils "ipfs-crawler/common"
 	libp2p "github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
-	dht "github.com/libp2p/go-libp2p-kad-dht/net"
+	// dht "github.com/libp2p/go-libp2p-kad-dht/net"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/protocol"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/libp2p/go-msgio/protoio"
 )
 
 type CrawlerConfig struct {
@@ -447,7 +448,7 @@ func (w *IPFSWorker) Stop() {
 // :return: list of received peer adresses
 func SendFindNode(ctx context.Context, recvReader msgio.Reader, target []byte, remotePeerStream network.Stream) ([]*peer.AddrInfo, error) {
 	// Send the packet to the target host and wait for the response or context timeout
-	err := dht.WriteMsg(remotePeerStream, pb.NewMessage(pb.Message_FIND_NODE, target, 0))
+	err := protoio.NewDelimitedWriter(remotePeerStream).WriteMsg(pb.NewMessage(pb.Message_FIND_NODE, target, 0))
 	if err != nil {
 		// This can fail, since we're sending multiple packets on the same stream.
 		// If it does, for now we just ignore the problem and return the error.
