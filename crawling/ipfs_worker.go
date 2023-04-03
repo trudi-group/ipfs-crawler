@@ -6,18 +6,18 @@ import (
 	"math/rand"
 	"time"
 
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/host"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-msgio"
-
-	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-msgio/protoio"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -127,8 +127,19 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.UserAgent(config.UserAgent)}
-	h, err := libp2p.New(ctx, opts...)
+
+	// The resource manager expects a limiter, se we create one from our limits.
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+
+	// Initialize the resource manager
+	rm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create libp2p host
+	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.ResourceManager(rm), libp2p.UserAgent(config.UserAgent)}
+	h, err := libp2p.New(opts...)
 	if err != nil {
 		panic(err)
 	}

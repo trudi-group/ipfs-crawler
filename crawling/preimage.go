@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/DataDog/zstd"
-	"github.com/libp2p/go-libp2p-core/peer"
 	kb "github.com/libp2p/go-libp2p-kbucket"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type PreImageHandler struct {

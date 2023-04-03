@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 )
 

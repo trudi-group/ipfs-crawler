@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/go-cid"
-	_ "github.com/libp2p/go-libp2p-core/peer"
+	_ "github.com/libp2p/go-libp2p/core/peer"
 	_ "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 )

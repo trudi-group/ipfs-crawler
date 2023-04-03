@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -250,6 +250,7 @@ func main() {
 }
 
 func setupViper() MainConfig {
+	// TODO fix: read config file as specified via commandline
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./configs")
