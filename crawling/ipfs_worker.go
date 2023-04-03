@@ -3,38 +3,31 @@ package crawling
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"time"
 
-	// utils "ipfs-crawler/common"
-	libp2p "github.com/libp2p/go-libp2p"
-	host "github.com/libp2p/go-libp2p-core/host"
-	// dht "github.com/libp2p/go-libp2p-kad-dht/net"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/host"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/prometheus/client_golang/prometheus"
 
-
-	// "github.com/ipfs/go-datastore"
-	"math/rand"
-	"time"
-	// "os"
-
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/network"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-msgio"
 
-	// "errors"
 	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-msgio/protoio"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/libp2p/go-msgio/protoio"
 )
 
 type CrawlerConfig struct {
-	MaxBackOffTime int
-	ConnectTimeout time.Duration
-	QueueSize int
-	ProtocolStrings []protocol.ID `mapstructure: "protocolStrings"`
-	UserAgent string
+	MaxBackOffTime  int
+	ConnectTimeout  time.Duration
+	QueueSize       int
+	ProtocolStrings []protocol.ID `mapstructure:"protocolStrings"`
+	UserAgent       string
 }
 
 // TODO: number of buckets = connectTimeout
@@ -45,8 +38,8 @@ var connectDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 })
 
 var rawNewIDs = prometheus.NewHistogram(prometheus.HistogramOpts{
-	Name:	"ipfs_crawler_worker_raw_obtained_IDs_per_peer",
-	Help:	"Raw number of obtained IDs from the ipfs_worker per crawled peer. Does not exclude previously seen IDs.",
+	Name:    "ipfs_crawler_worker_raw_obtained_IDs_per_peer",
+	Help:    "Raw number of obtained IDs from the ipfs_worker per crawled peer. Does not exclude previously seen IDs.",
 	Buckets: prometheus.LinearBuckets(0, 300, 10),
 })
 
@@ -84,39 +77,29 @@ type PrefixLimitError struct {
 func (e *PrefixLimitError) Error() string {
 	return e.msg
 }
-//
-// // LocalAddrsOnlyError is an error to indicate that the multiadress only contains local addresses.
-// type LocalAddrsOnlyError struct {
-// 	msg  string
-// 	peer peer.ID
-// }
-//
-// func (e *LocalAddrsOnlyError) Error() string {
-// 	return e.msg
-// }
 
 // IPFSWorker performs the connection and extracting the dht buckets from remote nodes.
 type IPFSWorker struct {
-	id        int
-	ph        *PreImageHandler
-	quitMsg   chan bool
-	h         host.Host
-	ctx       context.Context // ToDo: Find a way around storing this context explicitly, handle it in the loop maybe?
+	id      int
+	ph      *PreImageHandler
+	quitMsg chan bool
+	h       host.Host
+	ctx     context.Context // ToDo: Find a way around storing this context explicitly, handle it in the loop maybe?
 	// https://www.reddit.com/r/golang/comments/75vowy/question_is_it_ok_to_store_a_contextcancelfunc/do9kjqz/
 	cancelFunc    context.CancelFunc
 	crawlErrors   int
 	crawlAttempts int
 	resultChannel chan peer.AddrInfo
 	config        CrawlerConfig
-	capacity			int
-    Events      *EventManager
+	capacity      int
+	Events        *EventManager
 }
 
-// NodeKnows tores the collected adresses for a given ID
+// NodeKnows stores the collected addresses for a given ID
 type NodeKnows struct {
 	id    peer.ID
 	knows []*peer.AddrInfo
-	info map[string]interface{}
+	info  map[string]interface{}
 }
 
 // NewWorker initiates a new instance of a crawl worker.
@@ -139,8 +122,9 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 		resultChannel: make(chan peer.AddrInfo, 1000),
 		config:        config,
 		capacity:      config.QueueSize,
-        Events:        NewEventManager(),
+		Events:        NewEventManager(),
 	}
+
 	// Init the host, i.e., generate priv key and all that stuff
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.UserAgent(config.UserAgent)}
@@ -150,22 +134,16 @@ func NewIPFSWorker(id int, ctx context.Context) *IPFSWorker {
 	}
 	w.h = h
 
-	// w.ph = &PreImageHandler{
-	// 	PreImages: preimages,
-	// }
-
 	return w
 }
 
-
-func (w* IPFSWorker) GetHost() host.Host {
-    return w.h
+func (w *IPFSWorker) GetHost() host.Host {
+	return w.h
 }
 
-func (w *IPFSWorker) SetHost(h host.Host){
-    w.h = h
+func (w *IPFSWorker) SetHost(h host.Host) {
+	w.h = h
 }
-// Run starts the crawling
 
 func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	// Strip addresses we cannot connect to anyways
@@ -204,6 +182,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 		}).Debug("Could not connect.")
 		return nil, err
 	}
+
 	// Create a new stream
 	// Whereas NewStream() does not care if the context timed out.
 	dhtStream, err := w.h.NewStream(ctx, recvPeer.ID, w.config.ProtocolStrings...)
@@ -218,7 +197,6 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	}
 	defer dhtStream.Close()
 
-	// returnedPeers := GetRandomNeighbors(dhtStream)
 	returnedPeers, err := w.FullNeighborCrawl(ctx, dhtStream, recvPeer, w.ph)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -240,10 +218,10 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	if err == nil {
 		av = agentVersion.(string)
 	}
-    log.WithFields(log.Fields{
-        "IPFSWorkerID": w.id,
-    }).Debug("Fire connected callbacks")
-    w.Events.Emit("connected", recvPeer)
+	log.WithFields(log.Fields{
+		"IPFSWorkerID": w.id,
+	}).Debug("Fire connected callbacks")
+	w.Events.Emit("connected", recvPeer)
 	infos := make(map[string]interface{})
 	infos["version"] = av
 
@@ -255,22 +233,13 @@ func (w *IPFSWorker) CrawlPeer(askPeer *peer.AddrInfo) (*NodeKnows, error) {
 	return &NodeKnows{id: recvPeer.ID, knows: returnedPeers, info: infos}, nil
 }
 
-func (w *IPFSWorker) AddPreimages(handler *PreImageHandler)  {
+func (w *IPFSWorker) AddPreimages(handler *PreImageHandler) {
 	w.ph = handler
 }
-func (w *IPFSWorker) Capacity () int {
+
+func (w *IPFSWorker) Capacity() int {
 	return w.capacity
 }
-
-// CrawlPeer crawls a specific ID
-// :param askPeer: Multiaddr for remote node
-
-// ConnectAndFetchNeighbors actually connect to address and processes the neighborhood.
-//
-// Each crawling process is bound by a timeout defined by 'connectTimeout'
-//
-// :param askPeer: Multiaddr for remote node
-// :return: (via channel) received addresses or error
 
 // FullNeighborCrawl systematically reads the dht buckets from remote node.
 //
@@ -284,8 +253,8 @@ func (w *IPFSWorker) Capacity () int {
 // :param ph: Lookup table for prefixes
 // :return: slice of learned adresses
 func (w *IPFSWorker) FullNeighborCrawl(ctx context.Context, remotePeerStream network.Stream,
-	remotePeerInfo peer.AddrInfo, ph *PreImageHandler) ([]*peer.AddrInfo, error) {
-
+	remotePeerInfo peer.AddrInfo, ph *PreImageHandler,
+) ([]*peer.AddrInfo, error) {
 	// Send the FindNode packet. Here it goes.
 	// Start with a common prefix length of 0 and successively move to closer IDs until we either
 	// learn no new peers or our hard cap for the CPL pre-computation is reached.
@@ -343,84 +312,6 @@ func (w *IPFSWorker) FullNeighborCrawl(ctx context.Context, remotePeerStream net
 	}
 }
 
-
-// SendFindNode probes the remote node for neighborhood nodes.
-// :param ctx: controlling context
-// :param recvReader: Reader/parser for the responses
-// :param target: the prefix we are interested in
-// :param remotePeerStream: Connection to remote node
-// :return: list of received peer adresses
-// func SendFindNode(ctx context.Context, recvReader msgio.Reader, target []byte, remotePeerStream network.Stream) ([]*peer.AddrInfo, error) {
-// 	// Send the packet to the target host and wait for the response or context timeout
-// 	err := dht.WriteMsg(remotePeerStream, pb.NewMessage(pb.Message_FIND_NODE, target, 0))
-// 	if err != nil {
-// 		// This can fail, since we're sending multiple packets on the same stream.
-// 		// If it does, for now we just ignore the problem and return the error.
-// 		// The higher levels should deal with this
-// 		log.WithField("err", err).Warn("Sending findnode failed.")
-// 		return nil, err
-// 	}
-//
-// 	// Receive the response and handle it accordingly
-// 	var response pb.Message
-//
-// 	// The ReadMsg() function is synchronous, so we use this little async wrapper, s.t. we can adhere to the context timeout
-// 	errChan := make(chan error, 1)
-// 	responseChan := make(chan []byte, 1)
-//
-// 	go func() {
-// 		msgbytes, err := recvReader.ReadMsg()
-// 		if err != nil {
-// 			errChan <- err
-// 		} else {
-// 			responseChan <- msgbytes
-// 		}
-// 	}()
-//
-// 	select {
-// 	case <-ctx.Done():
-// 		// The context timed out, abort sendin/receiving and return.
-// 		return nil, ctx.Err()
-//
-// 	case msg := <-responseChan:
-// 		// Parse the request and then signal that the msgbytes-buffer can be used again
-// 		response.Unmarshal(msg)
-// 		// ToDo: Is this copied or just by reference? In a good language that would be more clear...
-// 		recvReader.ReleaseMsg(msg)
-// 		return pb.PBPeersToPeerInfos(response.GetCloserPeers()), nil
-//
-// 	case err := <-errChan:
-// 		return nil, err
-//
-// 	}
-// }
-
-// stripLocalAddrs removes local adresses from an multiadress.
-// Useful because a lot of the responses contain local adresses, which we cannot dial.
-// :param pinfo: MultiAddr
-// :return: new multiaddr with only non-public addresses
-// func stripLocalAddrs(pinfo peer.AddrInfo) peer.AddrInfo {
-// 	// We skip local and private addresses and return a new peer.AddrInfo.
-// 	// However, we create new MultiAddr objects to be on the safe side.
-//
-// 	strippedPinfo := peer.AddrInfo{
-// 		ID:    pinfo.ID,
-// 		Addrs: make([]ma.Multiaddr, 0),
-// 	}
-// 	for _, maddr := range pinfo.Addrs {
-// 		if manet.IsPrivateAddr(maddr) || manet.IsIPLoopback(maddr) {
-// 			continue
-// 		}
-// 		newAddr, err := ma.NewMultiaddr(maddr.String())
-// 		if err != nil {
-// 			log.WithField("err", err).Warn("Error creating multiaddr")
-// 			continue
-// 		}
-// 		strippedPinfo.Addrs = append(strippedPinfo.Addrs, newAddr)
-// 	}
-// 	return strippedPinfo
-// }
-
 // Stop stops the IPFSWorker.
 func (w *IPFSWorker) Stop() {
 	// w.dht.Close()
@@ -440,6 +331,7 @@ func (w *IPFSWorker) Stop() {
 	w.cancelFunc()
 	w.quitMsg <- true
 }
+
 // SendFindNode probes the remote node for neighborhood nodes.
 // :param ctx: controlling context
 // :param recvReader: Reader/parser for the responses
@@ -467,26 +359,26 @@ func SendFindNode(ctx context.Context, recvReader msgio.Reader, target []byte, r
 	go func() {
 		msgbytes, err := recvReader.ReadMsg()
 		if err != nil {
-			errChan<-err
+			errChan <- err
 		} else {
-			responseChan<-msgbytes
+			responseChan <- msgbytes
 		}
 	}()
 
 	select {
-		case <-ctx.Done():
-			// The context timed out, abort sendin/receiving and return.
-			return nil, ctx.Err()
+	case <-ctx.Done():
+		// The context timed out, abort sendin/receiving and return.
+		return nil, ctx.Err()
 
-		case msg :=<-responseChan:
-			// Parse the request and then signal that the msgbytes-buffer can be used again
-			response.Unmarshal(msg)
-			// ToDo: Is this copied or just by reference? In a good language that would be more clear...
-			recvReader.ReleaseMsg(msg)
-			return pb.PBPeersToPeerInfos(response.GetCloserPeers()), nil
+	case msg := <-responseChan:
+		// Parse the request and then signal that the msgbytes-buffer can be used again
+		response.Unmarshal(msg)
+		// ToDo: Is this copied or just by reference? In a good language that would be more clear...
+		recvReader.ReleaseMsg(msg)
+		return pb.PBPeersToPeerInfos(response.GetCloserPeers()), nil
 
-		case err:=<-errChan:
-			return nil, err
+	case err := <-errChan:
+		return nil, err
 
 	}
 }

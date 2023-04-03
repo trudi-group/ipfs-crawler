@@ -1,41 +1,29 @@
 package crawling
 
 import (
-
-	// "context"
 	"time"
 
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/prometheus/client_golang/prometheus"
-
-	// "os"
-	// "bufio"
-	// "encoding/hex"
-	// kb "github.com/libp2p/go-libp2p-kbucket"
-	// "strings"
+	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-
-	// "encoding/json"
-	// "io/ioutil"
 	"github.com/spf13/viper"
-	// "github.com/DataDog/zstd"
 )
 
-var	promMetricWaitingForRequests = prometheus.NewGauge(prometheus.GaugeOpts{
+var promMetricWaitingForRequests = prometheus.NewGauge(prometheus.GaugeOpts{
 	Name: "ipfs_crawler_cmanager_waiting_for_request_queue_length",
 	Help: "Current number of requests that are awaiting responses.",
 })
 
-var	promMetricNumberOfNewIDs = prometheus.NewCounterVec(prometheus.CounterOpts{
+var promMetricNumberOfNewIDs = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "ipfs_crawler_cmanager_number_new_IDs",
 	Help: "Current number of newly learned node IDs.",
 },
-[]string{
-	"reachable",
-})
+	[]string{
+		"reachable",
+	})
 
-var	promMetricTokenBucketLength = prometheus.NewGauge(prometheus.GaugeOpts{
+var promMetricTokenBucketLength = prometheus.NewGauge(prometheus.GaugeOpts{
 	Name: "ipfs_crawler_cmanager_token_bucket_free_capacity",
 	Help: "Free capacity of the token bucket used to rate limit the crawl.",
 })
@@ -45,7 +33,7 @@ func init() {
 	prometheus.MustRegister(promMetricWaitingForRequests)
 	prometheus.MustRegister(promMetricNumberOfNewIDs)
 	prometheus.MustRegister(promMetricTokenBucketLength)
-	
+
 	// TODO: sort out necessary defaults
 	viper.SetDefault("FilenameTimeFormat", "02-01-06--15:04:05")
 	viper.SetDefault("OutPath", "output_data_crawls/")
@@ -55,28 +43,29 @@ func init() {
 }
 
 type CMOutputConfig struct {
-	WriteToFileFlag bool `mapstructure:"dataOutputEnabled""`
-	OutPath string `mapstructure:"outpath""`
+	WriteToFileFlag    bool   `mapstructure:"dataOutputEnabled""`
+	OutPath            string `mapstructure:"outpath""`
 	FilenameTimeFormat string `mapstructure:"filenameTimeFormat""`
 }
+
 // Config Object for CrawlManager
 type CrawlManagerConfig struct {
-	Output CMOutputConfig `mapstructure:"dataOutput"`
-    CanaryFile string `mapstructure:"canaryfile"`
-    Sanity bool `mapstructure:"sanityEnabled"`
+	Output     CMOutputConfig `mapstructure:"dataOutput"`
+	CanaryFile string         `mapstructure:"canaryfile"`
+	Sanity     bool           `mapstructure:"sanityEnabled"`
 }
 
 func configureCrawlerManager() CrawlManagerConfig {
-    var config CrawlManagerConfig
+	var config CrawlManagerConfig
 
-    err := viper.UnmarshalKey("crawloptions", &config)
-    if err != nil {
-    	panic(err)
+	err := viper.UnmarshalKey("crawloptions", &config)
+	if err != nil {
+		panic(err)
 	}
 	return config
 }
 
-//Interface for a crawlWorker
+// Interface for a crawlWorker
 type CrawlerWorker interface {
 	Capacity() int
 	CrawlPeer(*peer.AddrInfo) (*NodeKnows, error)
@@ -84,19 +73,18 @@ type CrawlerWorker interface {
 
 type CrawlOutput struct {
 	StartDate string
-	EndDate string
-	Nodes map[peer.ID]*CrawledNode
+	EndDate   string
+	Nodes     map[peer.ID]*CrawledNode
 }
 
 type CrawledNode struct {
-	NID peer.ID
-	MultiAddrs[] ma.Multiaddr
-	Reachable bool
+	NID          peer.ID
+	MultiAddrs   []ma.Multiaddr
+	Reachable    bool
 	AgentVersion string
-	Neighbours[] peer.ID
-	Timestamp string
+	Neighbours   []peer.ID
+	Timestamp    string
 }
-
 
 // Container struct for crawl results... because of go...
 type CrawlResult struct {
@@ -105,48 +93,35 @@ type CrawlResult struct {
 }
 
 type CrawlManagerV2 struct {
-	// cacheFile string
-	// useCache bool
-	queueSize int
-	// InputQueue chan peer.AddrInfo
-	// onlineQueue chan peer.AddrInfo
-	// workQueue chan peer.AddrInfo
+	queueSize          int
 	ReportQueue        chan CrawlResult
 	toCrawl            []*peer.AddrInfo
 	tokenBucket        chan int
 	concurrentRequests int
 	// We use this map not only to store whether we crawled a node but also to store a nodes multiaddress
-	crawled map[peer.ID][]ma.Multiaddr
-	knows   map[peer.ID][]peer.ID
-	online  map[peer.ID]bool
-	info		map[peer.ID]map[string]interface{}
-	quitMsg chan bool
-	Done    chan bool
-	workers []*CrawlerWorker
-	// ctx context.Context
+	crawled   map[peer.ID][]ma.Multiaddr
+	knows     map[peer.ID][]peer.ID
+	online    map[peer.ID]bool
+	info      map[peer.ID]map[string]interface{}
+	quitMsg   chan bool
+	Done      chan bool
+	workers   []*CrawlerWorker
 	startTime time.Time
-	// errorChan chan error
-	// errorMap map[string]int
-	config CrawlManagerConfig
+	config    CrawlManagerConfig
 }
 
 func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
-	// concurrentRequests := 4096*2 // TODO: move to config
 	cm := &CrawlManagerV2{
-		ReportQueue:        make(chan CrawlResult, queueSize),
-		// concurrentRequests: concurrentRequests,
-		tokenBucket:        make(chan int, queueSize),
-		crawled:            make(map[peer.ID][]ma.Multiaddr),
-		online:             make(map[peer.ID]bool),
-		knows:              make(map[peer.ID][]peer.ID),
-		info: 							make(map[peer.ID]map[string]interface{}),
-		quitMsg:            make(chan bool),
-		Done:               make(chan bool),
-		startTime:          time.Now(),
+		ReportQueue: make(chan CrawlResult, queueSize),
+		tokenBucket: make(chan int, queueSize),
+		crawled:     make(map[peer.ID][]ma.Multiaddr),
+		online:      make(map[peer.ID]bool),
+		knows:       make(map[peer.ID][]peer.ID),
+		info:        make(map[peer.ID]map[string]interface{}),
+		quitMsg:     make(chan bool),
+		Done:        make(chan bool),
+		startTime:   time.Now(),
 	}
-	// for i := 1; i <= concurrentRequests; i++ {
-	// 	cm.tokenBucket <- true
-	// }
 	config := configureCrawlerManager()
 	cm.config = config
 	return cm
@@ -166,29 +141,29 @@ func (cm *CrawlManagerV2) AddWorker(w CrawlerWorker) {
 		sumCap += (*worker).Capacity()
 	}
 	log.WithFields(log.Fields{
-		"sumCap":           sumCap,
-		"maxCap":						maxCap,
-		"capacity":					w.Capacity(),
+		"sumCap":   sumCap,
+		"maxCap":   maxCap,
+		"capacity": w.Capacity(),
 	}).Debug("Size of Queue")
 	cm.tokenBucket = make(chan int, sumCap)
 	cm.ReportQueue = make(chan CrawlResult, sumCap)
 	cm.queueSize = sumCap
 	for iter := 0; iter < maxCap; iter++ {
 		for id, worker := range cm.workers {
-			if (*worker).Capacity() >= iter{
+			if (*worker).Capacity() >= iter {
 				cm.tokenBucket <- id
 			}
 		}
 	}
 	log.WithFields(log.Fields{
-		"QueueSize":           len(cm.tokenBucket),
+		"QueueSize": len(cm.tokenBucket),
 	}).Debug("Size of Queue")
 }
 
 func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput {
-	//Plan of action
-	//1. Add bootstraps to overflow
-	//2. Start dispatch loop
+	// Plan of action
+	// 1. Add bootstraps to overflow
+	// 2. Start dispatch loop
 	//  2.1 get new nodes from ReportQueue and check if we need to crawl them, if yes: add to toCrawl
 	//  2.2 if we can dispatch a crawl: dispatch from toCrawl
 	//  2.3 break loop: idleTimer fired | (toCrawl empty && no request are out && knowQueue empty)
@@ -201,15 +176,14 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 
 	log.Debug("Adding bootstraps")
 	cm.toCrawl = append(cm.toCrawl, bootstraps...)
-	// idleTimer := time.NewTimer(1 * time.Minute)
 	log.Trace("Going into loop")
 
-	ticker := time.NewTicker(20*time.Second)
-	defer ticker.Stop()
+	infoTicker := time.NewTicker(20 * time.Second)
+	defer infoTicker.Stop()
 	prometheusTicker := time.NewTicker(time.Second)
 	defer prometheusTicker.Stop()
-    idleTimer := time.NewTimer(1 * time.Minute)
-    defer idleTimer.Stop()
+	idleTimer := time.NewTimer(1 * time.Minute)
+	defer idleTimer.Stop()
 	for {
 		// check if we can break the loop
 		if len(cm.tokenBucket) == cm.queueSize &&
@@ -218,8 +192,7 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 			log.Info("Stopping crawl...")
 			break
 		}
-        // idleTimer := time.NewTimer(1 * time.Minute)
-        idleTimer.Reset(1 * time.Minute)
+		idleTimer.Reset(1 * time.Minute)
 		select {
 		case report := <-cm.ReportQueue:
 			// We have new information incomming
@@ -243,14 +216,13 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				for _, p := range node.knows {
 					cm.handleInputNodes(p)
 				}
-            log.WithFields(log.Fields{
-                "Current Request": cm.queueSize - len(cm.tokenBucket),
-                "toCrawl":           len(cm.toCrawl),
-                "Reports":           len(cm.ReportQueue),
-            }).Debug("Status of Manager")
+				log.WithFields(log.Fields{
+					"Current Request": cm.queueSize - len(cm.tokenBucket),
+					"toCrawl":         len(cm.toCrawl),
+					"Reports":         len(cm.ReportQueue),
+				}).Debug("Status of Manager")
 			}
-		// case token := <-cm.tokenBucket :
-		case id := <- cm.tokenBucket:
+		case id := <-cm.tokenBucket:
 			// We can start a crawl, so let's do that
 			if len(cm.toCrawl) > 0 {
 				var node *peer.AddrInfo
@@ -261,37 +233,36 @@ func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput
 				// nothing to do; return token
 				cm.tokenBucket <- id
 			}
-		case <-ticker.C:
+		case <-infoTicker.C:
 			log.WithFields(log.Fields{
-				"Found nodes":			len(cm.crawled),
-				"Waiting for requests":	cm.queueSize - len(cm.tokenBucket),
-				"To-crawl-queue":		len(cm.toCrawl),
-				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
+				"Found nodes":          len(cm.crawled),
+				"Waiting for requests": cm.queueSize - len(cm.tokenBucket),
+				"To-crawl-queue":       len(cm.toCrawl),
+				"Connectable nodes":    len(cm.online),
+			}).Info("Periodic info on crawl status")
 
-			case <-prometheusTicker.C:
-				// Prometheus stats
-				promMetricWaitingForRequests.Set(float64(cm.queueSize - len(cm.tokenBucket)))
-				promMetricTokenBucketLength.Set(float64(len(cm.tokenBucket)))
+		case <-prometheusTicker.C:
+			// Prometheus stats
+			promMetricWaitingForRequests.Set(float64(cm.queueSize - len(cm.tokenBucket)))
+			promMetricTokenBucketLength.Set(float64(len(cm.tokenBucket)))
 
 		case <-idleTimer.C:
-			// log.Debug("###TIMER###")
 			// Stop the crawl
 			log.Debug("Idle timer fired, stopping the crawl.")
 			break
-		// default:
 		}
-
 	}
+
 	return cm.createReport()
 }
 
 func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo, id int) {
 	worker := *cm.workers[id]
-	result, err := worker.CrawlPeer(node) //FIXME: worker selection
+	result, err := worker.CrawlPeer(node) // FIXME: worker selection
 	if err != nil {
-		//TODO: failed connection callback
+		// TODO: failed connection callback
 	} else {
-		// TODO: successful conncetion callback
+		// TODO: successful connection callback
 	}
 	cm.ReportQueue <- CrawlResult{Node: result, Err: err}
 	cm.tokenBucket <- id
@@ -331,13 +302,13 @@ func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
 func (cm *CrawlManagerV2) createReport() *CrawlOutput {
 	// Output a crawl report into the log
 	log.WithFields(log.Fields{
-		"start time":			cm.startTime.Format(cm.config.Output.FilenameTimeFormat),
-		"end time:":			time.Now().Format(cm.config.Output.FilenameTimeFormat),
-		"number of nodes": 		len(cm.crawled),
-		"connectable nodes": 	len(cm.online),
+		"start time":        cm.startTime.Format(cm.config.Output.FilenameTimeFormat),
+		"end time:":         time.Now().Format(cm.config.Output.FilenameTimeFormat),
+		"number of nodes":   len(cm.crawled),
+		"connectable nodes": len(cm.online),
 	}).Info("Crawl finished. Summary of results.")
 
-	out :=  CrawlOutput{StartDate:cm.startTime.Format(cm.config.Output.FilenameTimeFormat), EndDate:time.Now().Format(cm.config.Output.FilenameTimeFormat), Nodes: map[peer.ID]*CrawledNode{}}
+	out := CrawlOutput{StartDate: cm.startTime.Format(cm.config.Output.FilenameTimeFormat), EndDate: time.Now().Format(cm.config.Output.FilenameTimeFormat), Nodes: map[peer.ID]*CrawledNode{}}
 	for node, Addresses := range cm.crawled {
 		var status CrawledNode
 		status.NID = node
@@ -358,13 +329,10 @@ func (cm *CrawlManagerV2) createReport() *CrawlOutput {
 			status.AgentVersion = ""
 		}
 		if cm.info[node]["knows_timestamp"] != nil {
-			// log.Debug("Setting time")
 			status.Timestamp = cm.info[node]["knows_timestamp"].(string)
 		} else {
 			status.Timestamp = ""
 		}
-
-
 
 		out.Nodes[node] = &status
 	}

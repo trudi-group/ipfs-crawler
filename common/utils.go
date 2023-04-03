@@ -1,12 +1,11 @@
 package common
 
 import (
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	ma "github.com/multiformats/go-multiaddr"
-	"strings"
 	"fmt"
-	"os"
+	"strings"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // Parses an IPFS peer string and converts it into an ID + multiaddr. This is very useful when connecting to bootstrap nodes.
@@ -31,7 +30,6 @@ func ParsePeerString(text string) (*peer.AddrInfo, error) {
 func AskYesNo() bool {
 	var response string
 	positiveResp := []string{"y", "yes"}
-	// negativeResp := []string{"n", "no"}
 
 	_, err := fmt.Scanln(&response)
 	if err != nil {
@@ -53,13 +51,4 @@ func containsOneResponse(inputString string, resp []string) bool {
 		}
 	}
 	return false
-}
-
-func CreateDirIfNotExists(path string) error {
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		os.MkdirAll(path, 0777)
-		return nil
-	}
-	return err
 }

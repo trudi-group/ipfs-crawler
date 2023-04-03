@@ -1,9 +1,11 @@
+// Package crawling implements helper functions around multiaddresses and peer
+// addresses.
 package crawling
-// static functions concerning the multiaddresses or peerAddrs
+
 import (
+	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	manet "github.com/multiformats/go-multiaddr-net"
+	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -20,9 +22,9 @@ func AddrInfoToID(addrs []*peer.AddrInfo) []peer.ID {
 func FindNewMA(old []ma.Multiaddr, new []ma.Multiaddr) []ma.Multiaddr {
 	var newAddrs []ma.Multiaddr
 	var found bool
-	for _, newaddr := range(new) {
+	for _, newaddr := range new {
 		found = false
-		for _, oldaddr := range(old) {
+		for _, oldaddr := range old {
 			if newaddr.Equal(oldaddr) {
 				// We already know that address -> next
 				found = true
@@ -35,6 +37,7 @@ func FindNewMA(old []ma.Multiaddr, new []ma.Multiaddr) []ma.Multiaddr {
 	}
 	return newAddrs
 }
+
 // stripLocalAddrs removes local adresses from an multiadress.
 // Useful because a lot of the responses contain local adresses, which we cannot dial.
 // :param pinfo: MultiAddr
@@ -44,7 +47,7 @@ func stripLocalAddrs(pinfo peer.AddrInfo) peer.AddrInfo {
 	// However, we create new MultiAddr objects to be on the safe side.
 
 	strippedPinfo := peer.AddrInfo{
-		ID: pinfo.ID,
+		ID:    pinfo.ID,
 		Addrs: make([]ma.Multiaddr, 0),
 	}
 	for _, maddr := range pinfo.Addrs {

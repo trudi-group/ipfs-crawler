@@ -1,15 +1,16 @@
 package crawling
-import(
-  "bufio"
-  "strings"
-  "os"
-  "fmt"
-  "encoding/hex"
-  peer "github.com/libp2p/go-libp2p-core/peer"
-  kb "github.com/libp2p/go-libp2p-kbucket"
-  "github.com/DataDog/zstd"
-)
 
+import (
+	"bufio"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/DataDog/zstd"
+	"github.com/libp2p/go-libp2p-core/peer"
+	kb "github.com/libp2p/go-libp2p-kbucket"
+)
 
 type PreImageHandler struct {
 	PreImages map[string]string
@@ -22,13 +23,13 @@ func LoadPreimages(path string, mapsize int) (map[string]string, error) {
 	}
 	defer file.Close()
 	preImages := make(map[string]string, mapsize)
-    var scanner *bufio.Scanner
-    if strings.HasSuffix(path, ".zst") {
-        compressed := zstd.NewReader(file)
-        scanner = bufio.NewScanner(compressed)
-    }else{
-        scanner = bufio.NewScanner(file)
-    }
+	var scanner *bufio.Scanner
+	if strings.HasSuffix(path, ".zst") {
+		compressed := zstd.NewReader(file)
+		scanner = bufio.NewScanner(compressed)
+	} else {
+		scanner = bufio.NewScanner(file)
+	}
 
 	// Throw away the header line
 	scanner.Scan()
@@ -39,24 +40,6 @@ func LoadPreimages(path string, mapsize int) (map[string]string, error) {
 	}
 
 	return preImages, nil
-	// file, err := os.Open(path)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// defer file.Close()
-	// preImages := make(map[string]string, mapsize)
-
-	// scanner := bufio.NewScanner(file)
-	// // Throw away the header line
-	// scanner.Scan()
-	// for scanner.Scan() {
-	// 	line := scanner.Text()
- //    fmt.Println(line)
-	// 	splitLine := strings.Split(line, ";")
-	// 	preImages[splitLine[0]] = splitLine[1]
-	// }
-
-	// return preImages, nil
 }
 
 // Given a common prefix length and the ID of the peer we're asking, this function builds an approriate binary string with
@@ -74,10 +57,10 @@ func (ph *PreImageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 
 	// Since the CPL could span multiple bytes, we have to determine in which byte we work
 	var byteNum uint8
-	byteNum = cpl/8
+	byteNum = cpl / 8
 
 	// As well as the position within the byte
-	bitPosition := cpl%8
+	bitPosition := cpl % 8
 
 	// We cannot work with the multihash, so use the IPFS-internal function to convert the peerID multihash.
 	// Practically this means just hashing
@@ -87,14 +70,14 @@ func (ph *PreImageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 	// So we take that as well and build an approriate bitmask for this task
 	var mask uint8
 	for i := 0; uint8(i) <= bitPosition; i++ {
-		mask = mask>>1
+		mask = mask >> 1
 		mask += 0x80
 	}
 	maskedID := binID[byteNum] & mask
 
 	// Now let's flip the last bit
 	var xorMask uint8
-	xorMask = 0x80>>(bitPosition)
+	xorMask = 0x80 >> (bitPosition)
 	maskedID = maskedID ^ xorMask
 
 	// Now we have to put the pieces together into a string that we can use in our map
@@ -105,7 +88,7 @@ func (ph *PreImageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 	s += fmt.Sprintf("%08b", maskedID)
 
 	// ToDo: Related to above: this could be generic
-	for j := 0; uint8(j) < 2 - byteNum; j++ {
+	for j := 0; uint8(j) < 2-byteNum; j++ {
 		s += "00000000"
 	}
 	// Lookup the preimage in our "database"

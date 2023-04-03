@@ -16,7 +16,6 @@ require (
 	github.com/minio/sha256-simd v1.0.0
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/multiformats/go-multiaddr v0.3.1
-	github.com/multiformats/go-multiaddr-net v0.2.0
 	github.com/nxadm/tail v1.4.5 // indirect
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.3 // indirect
