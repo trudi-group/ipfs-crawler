@@ -157,9 +157,8 @@ func main() {
 		}
 	}
 
-	// Second, load preimageHandler
-	cm := crawlLib.NewCrawlManagerV2(config.BufferSize)
-	preimages, err := crawlLib.LoadPreimages(config.PreImagePath, config.NumPreImages)
+	// Load preimageHandler
+	handler, err := crawlLib.LoadPreimages(config.PreImagePath, config.NumPreImages)
 	if err != nil {
 		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
 		if !utils.AskYesNo() {
@@ -179,12 +178,15 @@ func main() {
 		go bsmanager.Start(bscon)
 	}
 
+	// Create crawl manager
+	cm := crawlLib.NewCrawlManagerV2(config.BufferSize)
+
 	// Create the crawl-workers
 	numWorkers := viper.GetInt("crawloptions.numworkers")
 	log.WithField("numberOfWorkers", numWorkers).Info("Creating workers...")
 	for i := 0; i < numWorkers; i++ {
 		worker := crawlLib.NewIPFSWorker(0, context.Background())
-		worker.AddPreimages(&handler)
+		worker.AddPreimages(handler)
 		// if use monitor: create monitoring worker with foreign host, and connect monitoring worker with connected event
 		if monitorcfg.Enabled {
 			bsworker, _ := watcher.NewBSWorker(worker.GetHost())

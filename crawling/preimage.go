@@ -16,7 +16,7 @@ type PreImageHandler struct {
 	PreImages map[string]string
 }
 
-func LoadPreimages(path string, mapsize int) (map[string]string, error) {
+func LoadPreimages(path string, mapsize int) (*PreImageHandler, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func LoadPreimages(path string, mapsize int) (map[string]string, error) {
 		preImages[splitLine[0]] = splitLine[1]
 	}
 
-	return preImages, nil
+	return &PreImageHandler{PreImages: preImages}, nil
 }
 
 // Given a common prefix length and the ID of the peer we're asking, this function builds an approriate binary string with
