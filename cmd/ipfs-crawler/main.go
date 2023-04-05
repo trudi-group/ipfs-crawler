@@ -11,10 +11,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"ipfs-crawler/watcher"
 
 	utils "ipfs-crawler/common"
 	crawlLib "ipfs-crawler/crawling"
+	"ipfs-crawler/watcher"
 )
 
 type MainConfig struct {
@@ -86,6 +86,8 @@ func main() {
 	flag.StringVar(&configFile, "config", "", "Path to config file.")
 	flag.BoolVar(&help, "help", false, "Print usage.")
 	flag.Parse()
+
+	viper.SetConfigFile(configFile)
 	viper.BindPFlag("loglevel", flag.Lookup("loglevel"))
 	viper.BindPFlag("cacheFile", flag.Lookup("cacheFile"))
 	viper.BindPFlag("useCache", flag.Lookup("useCache"))
@@ -99,13 +101,20 @@ func main() {
 	viper.BindPFlag("module.monitor.Input", flag.Lookup("Cids"))
 	viper.BindPFlag("module.monitor.Output", flag.Lookup("CidsOut"))
 
-	config := setupViper()
+	config, err := setupViper()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if help {
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
 	if saveconfig != "" {
-		viper.WriteConfigAs(saveconfig)
+		err = viper.WriteConfigAs(saveconfig)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Set up prometheus handler
@@ -122,7 +131,7 @@ func main() {
 	log.SetFormatter(formatter)
 	logLevel, err := log.ParseLevel(config.LogLevel)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	log.SetLevel(logLevel)
 
@@ -132,45 +141,31 @@ func main() {
 	if err != nil {
 		log.WithField("error", err).Error("Cannot read monitoring config, disable for now")
 	}
-	// fmt.Println(monitorcfg)
 
 	// Let's go!
 	log.Info("Thank you for running our IPFS Crawler!")
 
 	// First, check whether the weak RSA keys environment variable is set
 	_, weakKeysAllowed := os.LookupEnv("LIBP2P_ALLOW_WEAK_RSA_KEYS")
-	log.WithField("weak_RSA_keys", weakKeysAllowed).Info("Checking whether weak RSA keys are allowed...")
+	log.WithField("weak_RSA_keys", weakKeysAllowed).Debug("Checking whether weak RSA keys are allowed...")
 	if !weakKeysAllowed {
-		log.Error("Weak RSA keys are *disabled*. The crawl will most likely return garbage, since " +
-			"it will not be able to connect to the majority of nodes. Do you really want to continue? (y/n)")
-		if !utils.AskYesNo() {
-			os.Exit(0)
-		}
+		log.Fatal("Weak RSA keys are *disabled*. This is required to connect to most nodes. Set LIBP2P_ALLOW_WEAK_RSA_KEYS.")
 	}
 
 	// Create the directory for output data, if it does not exist
 	err = os.MkdirAll(config.Outpath, 0o777)
 	if err != nil {
-		log.WithField("err", err).Error("Could not create output directory, crawl result will not be stored! Continue? (y/n)")
-		if !utils.AskYesNo() {
-			os.Exit(0)
-		}
+		log.Fatal(fmt.Errorf("unable to create output directory: %w", err))
 	}
 
 	// Load preimageHandler
 	handler, err := crawlLib.LoadPreimages(config.PreImagePath, config.NumPreImages)
 	if err != nil {
-		log.WithField("err", err).Error("Could not load pre-images. Continue anyway? (y/n)")
-		if !utils.AskYesNo() {
-			os.Exit(0)
-		}
+		log.Fatal(fmt.Errorf("unable to load preimages: %w", err))
 	}
-	handler := crawlLib.PreImageHandler{
-		PreImages: preimages,
-	}
+
 	// create BitSwap Pipeline
-	var bsmanager *watcher.BSManager
-	bsmanager = watcher.NewBSManager()
+	bsmanager := watcher.NewBSManager()
 	bscon, bscancel := context.WithCancel(context.Background())
 	if monitorcfg.Enabled {
 		cids := watcher.ReadCids(monitorcfg.Input)
@@ -196,9 +191,12 @@ func main() {
 		cm.AddWorker(worker)
 	}
 
-	// Load bootstrappeers from config
+	// Load bootstrap peers from config
 	var bs []string
-	viper.UnmarshalKey("crawloptions.bootstrappeers", &bs)
+	err = viper.UnmarshalKey("crawloptions.bootstrappeers", &bs)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Convert the strings to node.AddrInfos
 	var bootstrappeers []*peer.AddrInfo
@@ -251,22 +249,19 @@ func main() {
 	os.Exit(0)
 }
 
-func setupViper() MainConfig {
-	// TODO fix: read config file as specified via commandline
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./configs")
-
-	err := viper.ReadInConfig() // Find and read the config file
-	if err != nil {             // Handle errors reading the config file
-		// panic(fmt.Errorf("Fatal error config file: %s \n", err))
-		log.Warning(err)
+func setupViper() (*MainConfig, error) {
+	// Find and read the config file
+	err := viper.ReadInConfig()
+	if err != nil {
+		return nil, fmt.Errorf("unable to read config file: %w", err)
 	}
-	// write read config back to config obj
+
+	// Deserialize config from viper
 	var config MainConfig
 	err = viper.Unmarshal(&config)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("unable to unmarshal config: %w", err)
 	}
-	return config
+
+	return &config, nil
 }
