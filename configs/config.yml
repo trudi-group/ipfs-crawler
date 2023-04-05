@@ -30,7 +30,7 @@ worker:
   connecttimeout: 180s # Time for timeout when connecting
   queuesize: 2000 # Size of the queue, also controls the rate limiting
   maxbackofftime: 250 # Backoff time for connecting.
-  userAgent: "ipfs_crawler (https://github.com/wiberlin/ipfs-crawler)"
+  userAgent: "ipfs_crawler (https://github.com/trudi-group/ipfs-crawler)"
   protocolStrings:
     - /ipfs/kad/1.0.0
     - /ipfs/kad/2.0.0
