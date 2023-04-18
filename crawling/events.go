@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -9,7 +10,7 @@ type EventManager struct {
 }
 
 type Callback interface {
-	Call(peer.AddrInfo)
+	Call(host.Host, peer.AddrInfo)
 }
 
 func NewEventManager() *EventManager {
@@ -25,10 +26,10 @@ func (em *EventManager) Subscribe(eventName string, callback Callback) {
 	em.events[eventName] = append(em.events[eventName], callback)
 }
 
-func (em *EventManager) Emit(eventName string, remote peer.AddrInfo) {
+func (em *EventManager) Emit(eventName string, h host.Host, remote peer.AddrInfo) {
 	if _, found := em.events[eventName]; found {
 		for _, calls := range em.events[eventName] {
-			go calls.Call(remote)
+			go calls.Call(h, remote)
 		}
 	}
 }

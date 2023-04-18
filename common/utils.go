@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -23,32 +22,4 @@ func ParsePeerString(text string) (*peer.AddrInfo, error) {
 		return ainfo, nil
 	}
 	return nil, peer.ErrInvalidAddr
-}
-
-// Asks the user to enter "y" or "n". Also recognizes "yes" and "no" in all capitalizations.
-// Anything unrecognized will is equivalent to "n".
-func AskYesNo() bool {
-	var response string
-	positiveResp := []string{"y", "yes"}
-
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		return false
-	}
-
-	response = strings.ToLower(response)
-	if containsOneResponse(response, positiveResp) {
-		return true
-	} else {
-		return false
-	}
-}
-
-func containsOneResponse(inputString string, resp []string) bool {
-	for _, r := range resp {
-		if strings.Contains(inputString, r) {
-			return true
-		}
-	}
-	return false
 }

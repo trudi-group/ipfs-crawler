@@ -12,17 +12,18 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type PreImageHandler struct {
+type PreimageHandler struct {
 	PreImages map[string]string
 }
 
-func LoadPreimages(path string, mapsize int) (*PreImageHandler, error) {
+func LoadPreimages(path string) (*PreimageHandler, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	preImages := make(map[string]string, mapsize)
+
+	preImages := make(map[string]string)
 	var scanner *bufio.Scanner
 	if strings.HasSuffix(path, ".zst") {
 		compressed := zstd.NewReader(file)
@@ -33,18 +34,19 @@ func LoadPreimages(path string, mapsize int) (*PreImageHandler, error) {
 
 	// Throw away the header line
 	scanner.Scan()
+	// Decode input lines
 	for scanner.Scan() {
 		line := scanner.Text()
 		splitLine := strings.Split(line, ";")
 		preImages[splitLine[0]] = splitLine[1]
 	}
 
-	return &PreImageHandler{PreImages: preImages}, nil
+	return &PreimageHandler{PreImages: preImages}, nil
 }
 
 // Given a common prefix length and the ID of the peer we're asking, this function builds an approriate binary string with
 // the target CPL and returns the corresponding pre-image.
-func (ph *PreImageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint8) []byte {
+func (ph *PreimageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint8) []byte {
 	// Roadmap:
 	// * We take the target's ID until CPL -> we have a common prefix of at least this length
 	// * We then flip the next bit of the ID so we're sure to be different
@@ -91,6 +93,7 @@ func (ph *PreImageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 	for j := 0; uint8(j) < 2-byteNum; j++ {
 		s += "00000000"
 	}
+
 	// Lookup the preimage in our "database"
 	unhashed, err := hex.DecodeString(ph.PreImages[s])
 	if err != nil {

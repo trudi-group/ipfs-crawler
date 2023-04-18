@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func AddrInfoToID(addrs []*peer.AddrInfo) []peer.ID {
+func AddrInfoToID(addrs []peer.AddrInfo) []peer.ID {
 	peers := make([]peer.ID, len(addrs))
 	for i, addr := range addrs {
 		peers[i] = addr.ID

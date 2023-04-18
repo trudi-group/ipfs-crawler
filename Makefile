@@ -14,6 +14,5 @@ preimages:
 clean:
 	rm cmd/ipfs-crawler/crawler
 	rm start_crawl
-# 	rm cmd/hash-precomputation/compute_preimages
 
 all: preimages build

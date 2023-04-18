@@ -1,34 +1,48 @@
 package crawling
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 )
 
-type CrawlOutputJSON struct {
-	StartDate string             `json:"start_timestamp"`
-	EndDate   string             `json:"end_timestamp"`
-	Nodes     []*CrawledNodeJSON `json:"found_nodes"`
-}
-type CrawledNodeJSON struct {
-	NID          peer.ID        `json:"NodeID"`
-	MultiAddrs   []ma.Multiaddr `json:"multiaddrs"`
-	Reachable    bool           `json:"reachable"`
-	AgentVersion string         `json:"agent_version"`
+type crawlOutputJSON struct {
+	StartDate time.Time         `json:"start_timestamp"`
+	EndDate   time.Time         `json:"end_timestamp"`
+	Nodes     []crawledNodeJSON `json:"found_nodes"`
 }
 
-func ReportToFile(report *CrawlOutput, path string) error {
-	var nodes []*CrawledNodeJSON
+type crawledNodeJSON struct {
+	MultiAddrs             []ma.Multiaddr `json:"multiaddrs"`
+	AgentVersion           string         `json:"agent_version"`
+	ID                     peer.ID        `json:"id"`
+	Crawlable              bool           `json:"crawlable"`
+	CrawlStartedTimestamp  time.Time      `json:"crawl_started_timestamp"`
+	CrawlFinishedTimestamp time.Time      `json:"crawl_finished_timestamp"`
+	SupportedProtocols     []string       `json:"supported_protocols"`
+}
+
+func ReportToFile(report *CrawlOutput, startTs time.Time, endTs time.Time, path string) error {
+	var nodes []crawledNodeJSON
 	for _, node := range report.Nodes {
-		jsonFormatted := CrawledNodeJSON{NID: node.NID, MultiAddrs: node.MultiAddrs, Reachable: node.Reachable, AgentVersion: node.AgentVersion}
-		nodes = append(nodes, &jsonFormatted)
+		jsonFormatted := crawledNodeJSON{
+			MultiAddrs:             node.MultiAddrs,
+			AgentVersion:           node.AgentVersion,
+			ID:                     node.ID,
+			Crawlable:              node.Crawlable,
+			CrawlStartedTimestamp:  node.CrawlStartedTimestamp,
+			CrawlFinishedTimestamp: node.CrawlFinishedTimestamp,
+			SupportedProtocols:     node.SupportedProtocols,
+		}
+		nodes = append(nodes, jsonFormatted)
 	}
-	crawlOutput := CrawlOutputJSON{StartDate: report.StartDate, EndDate: report.EndDate, Nodes: nodes}
+	crawlOutput := crawlOutputJSON{StartDate: startTs, EndDate: endTs, Nodes: nodes}
 
 	// Open output file.
 	vf, err := os.Create(path)
@@ -41,7 +55,7 @@ func ReportToFile(report *CrawlOutput, path string) error {
 		return fmt.Errorf("unable to write output: %w", err)
 	}
 
-	return nil
+	return vf.Close()
 }
 
 func WritePeergraph(report *CrawlOutput, path string) error {
@@ -50,26 +64,33 @@ func WritePeergraph(report *CrawlOutput, path string) error {
 		return fmt.Errorf("unable to open output file: %w", err)
 	}
 
-	_, err = fmt.Fprintf(f, "SOURCE;TARGET;ONLINE;TIMESTAMP\n")
+	w := csv.NewWriter(f)
+
+	err = w.Write([]string{"source", "target", "target_crawlable", "source_crawl_timestamp"})
 	if err != nil {
 		return fmt.Errorf("unable to write output: %w", err)
 	}
 	for _, node := range report.Nodes {
-		for _, neigh := range node.Neighbours {
-			on := report.Nodes[neigh].Reachable
-			time := node.Timestamp
-			_, err = fmt.Fprintf(f, "%s;%s;%t;%s\n", node.NID, neigh, on, time)
+		for _, neighbour := range node.Neighbours {
+			crawlable := fmt.Sprintf("%t", report.Nodes[neighbour].Crawlable)
+			ts := node.CrawlFinishedTimestamp.Format(time.RFC3339)
+			err = w.Write([]string{node.ID.String(), neighbour.String(), crawlable, ts})
 			if err != nil {
 				return fmt.Errorf("unable to write output: %w", err)
 			}
 		}
 	}
 
-	return nil
+	w.Flush()
+	if err = w.Error(); err != nil {
+		return fmt.Errorf("unable to flush CSV writer: %w", err)
+	}
+
+	return f.Close()
 }
 
 // RestoreNodeCache restores a viously cached file of nodes.
-func RestoreNodeCache(path string) ([]*peer.AddrInfo, error) {
+func RestoreNodeCache(path string) ([]peer.AddrInfo, error) {
 	nodedata, err := os.ReadFile(path)
 	if err != nil {
 		log.WithField("err", err).Warning("Node caching is enabled, but we couldn't read from the cache file. " +
@@ -83,20 +104,15 @@ func RestoreNodeCache(path string) ([]*peer.AddrInfo, error) {
 		return nil, fmt.Errorf("unable to decode node cache: %w", err)
 	}
 
-	var out []*peer.AddrInfo
-	// switch to pointers to fullfil requirements of main.go... because this is stupid
-	for it := range result {
-		out = append(out, &result[it])
-	}
-	return out, nil
+	return result, nil
 }
 
 func SaveNodeCache(result *CrawlOutput, cacheFile string) error {
 	var nodesSave []peer.AddrInfo
 	for _, node := range result.Nodes {
-		if node.Reachable {
+		if node.Crawlable {
 			recreated := peer.AddrInfo{
-				ID:    node.NID,
+				ID:    node.ID,
 				Addrs: node.MultiAddrs,
 			}
 			nodesSave = append(nodesSave, recreated)
@@ -114,5 +130,5 @@ func SaveNodeCache(result *CrawlOutput, cacheFile string) error {
 		return fmt.Errorf("unable to write node cache: %w", err)
 	}
 
-	return nil
+	return f.Close()
 }
