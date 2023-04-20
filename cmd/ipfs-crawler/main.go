@@ -75,6 +75,7 @@ func main() {
 	if err != nil {
 		log.Fatal(fmt.Errorf("unable to create output directory: %w", err))
 	}
+	log.WithField("path", config.OutputDirectoryPath).Info("writing results to")
 
 	// Load preimageHandler
 	preimageHandler, err := crawlLib.LoadPreimages(config.PreimageFilePath)
@@ -94,10 +95,14 @@ func main() {
 	if config.CacheFilePath != nil {
 		cachedNodes, err := crawlLib.RestoreNodeCache(*config.CacheFilePath)
 		if err != nil {
-			log.Fatal(fmt.Errorf("unable to load cached peers: %w", err))
+			// First time may fail
+			log.WithError(err).Warn("unable to load cached peers, ignoring")
+		} else {
+			log.WithField("num", len(cachedNodes)).Info("loaded cached peers, adding to queue")
+			cm.AddPeersToCrawl(cachedNodes)
 		}
-		log.WithField("amount", len(cachedNodes)).Info("Adding cached peers to crawl queue.")
-		cm.AddPeersToCrawl(cachedNodes)
+	} else {
+		log.Info("node caching disabled")
 	}
 
 	// Start the crawl
