@@ -1,0 +1,11 @@
+# build-in-docker output directory
+/out
+
+# Crawl output data default
+/output_data_crawls
+
+# Vim undo files
+*.un~
+
+# Goland files
+/.idea
