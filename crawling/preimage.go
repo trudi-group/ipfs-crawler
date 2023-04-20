@@ -12,10 +12,14 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
+// The PreimageHandler handles selection of the correct preimages to extract
+// information from specific Kademlia buckets of a peer.
 type PreimageHandler struct {
-	PreImages map[string]string
+	preimages map[string]string
 }
 
+// LoadPreimages loads precomputed preimages from a potentially Zst-compressed
+// file.
 func LoadPreimages(path string) (*PreimageHandler, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -41,12 +45,13 @@ func LoadPreimages(path string) (*PreimageHandler, error) {
 		preImages[splitLine[0]] = splitLine[1]
 	}
 
-	return &PreimageHandler{PreImages: preImages}, nil
+	return &PreimageHandler{preimages: preImages}, nil
 }
 
-// Given a common prefix length and the ID of the peer we're asking, this function builds an approriate binary string with
-// the target CPL and returns the corresponding pre-image.
-func (ph *PreimageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint8) []byte {
+// Given a common prefix length and the ID of the peer we're asking, this
+// function builds an appropriate binary string with the target CPL and returns
+// the corresponding pre-image.
+func (ph *PreimageHandler) findPreImageForCPL(targetPeer peer.AddrInfo, cpl uint8) []byte {
 	// Roadmap:
 	// * We take the target's ID until CPL -> we have a common prefix of at least this length
 	// * We then flip the next bit of the ID so we're sure to be different
@@ -95,7 +100,7 @@ func (ph *PreimageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 	}
 
 	// Lookup the preimage in our "database"
-	unhashed, err := hex.DecodeString(ph.PreImages[s])
+	unhashed, err := hex.DecodeString(ph.preimages[s])
 	if err != nil {
 		panic(err)
 	}

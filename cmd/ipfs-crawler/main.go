@@ -1,3 +1,4 @@
+// Package main implements the ipfs-crawler executable.
 package main
 
 import (
@@ -11,9 +12,12 @@ import (
 	"gopkg.in/yaml.v3"
 
 	crawlLib "ipfs-crawler/crawling"
+
+	// Plugins
 	_ "ipfs-crawler/plugins/bsprobe"
 )
 
+// Config is the configuration for the ipfs-crawler executable.
 type Config struct {
 	// Path to output directory.
 	OutputDirectoryPath string `yaml:"output_directory_path"`
@@ -121,12 +125,12 @@ func main() {
 
 	// Write output
 	log.Debug("writing node metadata")
-	err = crawlLib.ReportToFile(report, before, after, path.Join(config.OutputDirectoryPath, fmt.Sprintf("visitedPeers_%s.json", beforeString)))
+	err = report.WriteMetadata(before, after, path.Join(config.OutputDirectoryPath, fmt.Sprintf("visitedPeers_%s.json", beforeString)))
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Debug("writing peer graph")
-	err = crawlLib.WritePeergraph(report, path.Join(config.OutputDirectoryPath, fmt.Sprintf("peerGraph_%s.csv", beforeString)))
+	err = report.WritePeergraph(path.Join(config.OutputDirectoryPath, fmt.Sprintf("peerGraph_%s.csv", beforeString)))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -134,7 +138,7 @@ func main() {
 
 	// Write node cache
 	if config.CacheFilePath != nil {
-		err = crawlLib.SaveNodeCache(report, *config.CacheFilePath)
+		err = report.SaveNodeCache(*config.CacheFilePath)
 		if err != nil {
 			log.Fatal(fmt.Errorf("unable to save online nodes to cache: %w", err))
 		}

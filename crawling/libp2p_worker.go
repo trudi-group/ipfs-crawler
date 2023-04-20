@@ -20,8 +20,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO: Refer ConnectionTimeout
-
 // PrefixLimitError signals that we have exhausted the bucket space.
 type PrefixLimitError struct {
 	msg  string
@@ -32,10 +30,11 @@ func (e *PrefixLimitError) Error() string {
 	return e.msg
 }
 
-// DesyncMillisMax sets a limit in milliseconds on the random backoff performed
-// before each request to de-sync.
-const DesyncMillisMax int = 500
+// DesyncMillisMax sets a limit on the random backoff performed before each
+// request to de-sync.
+const DesyncMillisMax = 500
 
+// The WorkerConfig configures a single worker.
 type WorkerConfig struct {
 	ConnectTimeout      time.Duration `yaml:"connect_timeout"`
 	ConnectionAttempts  int           `yaml:"connection_attempts"`
@@ -45,8 +44,8 @@ type WorkerConfig struct {
 	UserAgent           string        `yaml:"user_agent"`
 }
 
-// IPFSWorker performs the connection and extracting the dht buckets from remote nodes.
-type IPFSWorker struct {
+// A Libp2pWorker implements the CrawlerWorker interface for a libp2p host.
+type Libp2pWorker struct {
 	preimageHandler *PreimageHandler
 	host            host.Host
 	config          WorkerConfig
@@ -55,15 +54,12 @@ type IPFSWorker struct {
 	closingLock     sync.Mutex
 }
 
-// NewWorker initiates a new instance of a crawl worker.
-// Initalizes the token bucket used for rate limiting and the necessary RSA keys for IPFS
-//
-// :param cm: Instance of the crawlmanager the new worker will be attached to
-// :param id: ID of the new worker
-// :param ctx: context that the new worker will be attached to
-// :return: fully initialized worker
-func NewIPFSWorker(config WorkerConfig, pluginConfigs []PluginConfig, preimageHandler *PreimageHandler) (*IPFSWorker, error) {
-	w := &IPFSWorker{
+// NewLibp2pWorker creates a new libp2p worker.
+// This initializes a new libp2p host with a unique keypair, configures the
+// libp2p resource manager to be disabled, and initializes all given plugins on
+// the host.
+func NewLibp2pWorker(config WorkerConfig, pluginConfigs []PluginConfig, preimageHandler *PreimageHandler) (*Libp2pWorker, error) {
+	w := &Libp2pWorker{
 		preimageHandler: preimageHandler,
 		config:          config,
 		closed:          make(chan struct{}),
@@ -99,16 +95,13 @@ func NewIPFSWorker(config WorkerConfig, pluginConfigs []PluginConfig, preimageHa
 	return w, nil
 }
 
-func (w *IPFSWorker) GetHost() host.Host {
-	return w.host
-}
-
-func (w *IPFSWorker) CrawlPeer(askPeer peer.AddrInfo) (*NodeKnows, error) {
+// CrawlPeer implements CrawlerWorker.
+func (w *Libp2pWorker) CrawlPeer(askPeer peer.AddrInfo) (*NodeKnows, error) {
 	// Strip local addresses
 	publicAddrInfo := stripLocalAddrs(askPeer)
 	log.WithFields(log.Fields{
 		"destAddr": publicAddrInfo,
-	}).Debug("IPFSWorker connecting to")
+	}).Debug("Libp2pWorker connecting to")
 	// Check if there are an addresses left
 	if len(publicAddrInfo.Addrs) == 0 {
 		// Nope
@@ -222,7 +215,7 @@ func (w *IPFSWorker) CrawlPeer(askPeer peer.AddrInfo) (*NodeKnows, error) {
 // Asks the remote node for the closest peers to a given prefix the remote knows.
 // Iterates through the prefixes until no new peers are learned.
 // Returns an error if connecting fails, message passing fails, or if prefix space is exhausted.
-func (w *IPFSWorker) fullNeighborCrawl(remotePeerStream network.Stream, remotePeerInfo peer.AddrInfo) ([]peer.AddrInfo, error) {
+func (w *Libp2pWorker) fullNeighborCrawl(remotePeerStream network.Stream, remotePeerInfo peer.AddrInfo) ([]peer.AddrInfo, error) {
 	// Send the FindNode packet. Here it goes.
 	// Start with a common prefix length of 0 and successively move to closer IDs until we either
 	// learn no new peers or our hard cap for the CPL pre-computation is reached.
@@ -237,7 +230,7 @@ func (w *IPFSWorker) fullNeighborCrawl(remotePeerStream network.Stream, remotePe
 	// Ask at least 4 times
 	for i = 0; (i < 4 || newlyLearnedPeers != 0) && (i < 24); i++ {
 		newlyLearnedPeers = 0
-		target := w.preimageHandler.FindPreImageForCPL(remotePeerInfo, uint8(i))
+		target := w.preimageHandler.findPreImageForCPL(remotePeerInfo, uint8(i))
 		log.WithFields(log.Fields{
 			"cpl":      i,
 			"destAddr": remotePeerInfo,
@@ -275,7 +268,7 @@ func (w *IPFSWorker) fullNeighborCrawl(remotePeerStream network.Stream, remotePe
 		}
 		log.WithFields(log.Fields{
 			"numLearnedPeers": newlyLearnedPeers,
-		}).Trace("IPFSWorker learned peers.")
+		}).Trace("Libp2pWorker learned peers.")
 	}
 
 	if i == 23 {
@@ -290,8 +283,9 @@ func (w *IPFSWorker) fullNeighborCrawl(remotePeerStream network.Stream, remotePe
 	return returnedPeers, nil
 }
 
-// Stop stops the IPFSWorker.
-func (w *IPFSWorker) Stop() error {
+// Stop stops the Libp2pWorker.
+// This shuts down any plugins and stops the libp2p host.
+func (w *Libp2pWorker) Stop() error {
 	w.closingLock.Lock()
 	select {
 	case <-w.closed:

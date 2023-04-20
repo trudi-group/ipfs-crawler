@@ -4,16 +4,19 @@ import (
 	"fmt"
 	"time"
 
-	utils "ipfs-crawler/common"
-
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 )
 
-// Interface for a crawlWorker
+// A CrawlerWorker is a libp2p host which is used to crawl the network.
+// It should support concurrent crawls.
+// It should also execute any plugins on the discovered connectable nodes.
 type CrawlerWorker interface {
+	// CrawlPeer crawls the given peer.
 	CrawlPeer(peer.AddrInfo) (*NodeKnows, error)
+
+	// Stop shuts down the worker cleanly.
 	Stop() error
 }
 
@@ -25,6 +28,7 @@ type NodeKnows struct {
 	pluginResults map[string]PluginResult
 }
 
+// PluginResult encapsulates the result of calling a plugin on a peer.
 type PluginResult struct {
 	Error  error
 	Result interface{}
@@ -38,10 +42,12 @@ type peerMetadata struct {
 	SupportedProtocols     []string
 }
 
+// CrawlOutput is the output of a crawl.
 type CrawlOutput struct {
 	Nodes map[peer.ID]CrawledNode
 }
 
+// CrawledNode contains information about a single crawled node.
 type CrawledNode struct {
 	ID                     peer.ID
 	MultiAddrs             []ma.Multiaddr
@@ -54,11 +60,12 @@ type CrawledNode struct {
 	PluginData             map[string]PluginResult
 }
 
-type CrawlResult struct {
-	Node *NodeKnows
-	Err  error
+type workerCrawlResult struct {
+	node *NodeKnows
+	err  error
 }
 
+// CrawlerConfig contains configuration for the crawler.
 type CrawlerConfig struct {
 	NumWorkers         int            `yaml:"num_workers"`
 	BootstrapPeers     []string       `yaml:"bootstrap_peers"`
@@ -67,8 +74,11 @@ type CrawlerConfig struct {
 	Plugins            []PluginConfig `yaml:"plugins"`
 }
 
+// A CrawlManager manages crawling the network.
+// It contains multiple workers, with a libp2p node each, which are used to
+// execute requests concurrently.
 type CrawlManager struct {
-	resultChan       chan CrawlResult
+	resultChan       chan workerCrawlResult
 	toCrawl          []peer.AddrInfo
 	tokenBucket      chan int
 	workers          []CrawlerWorker
@@ -82,9 +92,12 @@ type CrawlManager struct {
 	pluginResults map[peer.ID]map[string]PluginResult
 }
 
+// NewCrawlManager creates a new CrawlManager.
+// This attempts to create the specified number of workers and plugins, which
+// may fail.
 func NewCrawlManager(config CrawlerConfig, ph *PreimageHandler) (*CrawlManager, error) {
 	cm := &CrawlManager{
-		resultChan:       make(chan CrawlResult),
+		resultChan:       make(chan workerCrawlResult),
 		tokenBucket:      make(chan int, config.NumWorkers*config.ConcurrentRequests),
 		crawled:          make(map[peer.ID][]ma.Multiaddr),
 		online:           make(map[peer.ID]bool),
@@ -96,7 +109,7 @@ func NewCrawlManager(config CrawlerConfig, ph *PreimageHandler) (*CrawlManager, 
 
 	// Create workers
 	for i := 0; i < config.NumWorkers; i++ {
-		worker, err := NewIPFSWorker(config.WorkerConfig, config.Plugins, ph)
+		worker, err := NewLibp2pWorker(config.WorkerConfig, config.Plugins, ph)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create worker: %w", err)
 		}
@@ -110,7 +123,7 @@ func NewCrawlManager(config CrawlerConfig, ph *PreimageHandler) (*CrawlManager, 
 
 	// Parse and add bootstrap peers to queue
 	for _, maddr := range config.BootstrapPeers {
-		pinfo, err := utils.ParsePeerString(maddr)
+		pinfo, err := parsePeerString(maddr)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse bootstrap peer address: %w", err)
 		}
@@ -120,10 +133,14 @@ func NewCrawlManager(config CrawlerConfig, ph *PreimageHandler) (*CrawlManager, 
 	return cm, nil
 }
 
+// AddPeersToCrawl adds peers to the end of the queue.
+// This must be called before CrawlNetwork.
+// Not thread-safe.
 func (cm *CrawlManager) AddPeersToCrawl(peers []peer.AddrInfo) {
 	cm.toCrawl = append(cm.toCrawl, peers...)
 }
 
+// Stop shuts down all workers cleanly.
 func (cm *CrawlManager) Stop() error {
 	for _, worker := range cm.workers {
 		err := worker.Stop()
@@ -135,6 +152,11 @@ func (cm *CrawlManager) Stop() error {
 	return nil
 }
 
+// CrawlNetwork crawls the network, starting at the configured bootstrap nodes.
+// If any peers were added with AddPeersToCrawl, those will be asked, too.
+// Apart from that, all nodes learned during the crawl will be contacted.
+// Nodes are contacted only once, unless a previous connection attempt failed
+// and new addresses have been learned since.
 func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 	// Plan of action
 	// 1. Add bootstraps to overflow
@@ -159,12 +181,12 @@ func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 		select {
 		case report := <-cm.resultChan:
 			// We have new information incoming
-			if _, ok := cm.crawlsInProgress[report.Node.id]; !ok {
+			if _, ok := cm.crawlsInProgress[report.node.id]; !ok {
 				panic("received result for untracked crawl")
 			}
-			delete(cm.crawlsInProgress, report.Node.id)
-			node := report.Node
-			err := report.Err
+			delete(cm.crawlsInProgress, report.node.id)
+			node := report.node
+			err := report.err
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Debug("Error while crawling")
 				// TODO: Error handling
@@ -176,7 +198,7 @@ func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 			}
 
 			cm.online[node.id] = true
-			cm.knows[node.id] = AddrInfoToID(node.knows)
+			cm.knows[node.id] = addrInfosToIDs(node.knows)
 			cm.peerMetadata[node.id] = node.info // TODO: make the map merge together not overwrite each other
 			cm.pluginResults[node.id] = node.pluginResults
 			for _, p := range node.knows {
@@ -242,7 +264,7 @@ func (cm *CrawlManager) dispatch(node peer.AddrInfo, id int) {
 	result.info.CrawlStartedTimestamp = before
 	result.info.CrawlFinishedTimestamp = after
 
-	cm.resultChan <- CrawlResult{Node: result, Err: err}
+	cm.resultChan <- workerCrawlResult{node: result, err: err}
 	cm.tokenBucket <- id
 }
 
@@ -254,7 +276,7 @@ func (cm *CrawlManager) handleInputNodes(node peer.AddrInfo) {
 	}
 	if crawled && !online {
 		// Check if there are any new addresses. If so, connect to them
-		newAddrs := FindNewMA(oldAddrs, stripLocalAddrs(node).Addrs)
+		newAddrs := filterOutOldAddresses(oldAddrs, stripLocalAddrs(node).Addrs)
 		if len(newAddrs) == 0 {
 			// Nothing new, don't bother dialing again
 			return

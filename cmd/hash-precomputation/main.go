@@ -1,3 +1,5 @@
+// Package main implements the hash-precomputation binary to compute preimages
+// for the libp2p Kademlia crawler.
 package main
 
 import (

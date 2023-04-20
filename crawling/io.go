@@ -34,7 +34,9 @@ type pluginResultJSON struct {
 	Result interface{} `json:"result"`
 }
 
-func ReportToFile(report *CrawlOutput, startTs time.Time, endTs time.Time, path string) error {
+// WriteMetadata writes a JSON report about the crawl to a file.
+// The report contains metadata about each node.
+func (report *CrawlOutput) WriteMetadata(startTs time.Time, endTs time.Time, path string) error {
 	var nodes []crawledNodeJSON
 	for _, node := range report.Nodes {
 		jsonFormatted := crawledNodeJSON{
@@ -78,7 +80,9 @@ func ReportToFile(report *CrawlOutput, startTs time.Time, endTs time.Time, path 
 	return vf.Close()
 }
 
-func WritePeergraph(report *CrawlOutput, path string) error {
+// WritePeergraph writes the graph structure of the network as determined
+// through the crawl to a CSV file.
+func (report *CrawlOutput) WritePeergraph(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("unable to open output file: %w", err)
@@ -109,7 +113,7 @@ func WritePeergraph(report *CrawlOutput, path string) error {
 	return f.Close()
 }
 
-// RestoreNodeCache restores a viously cached file of nodes.
+// RestoreNodeCache restores a list of peer addresses from a file.
 func RestoreNodeCache(path string) ([]peer.AddrInfo, error) {
 	nodedata, err := os.ReadFile(path)
 	if err != nil {
@@ -127,9 +131,10 @@ func RestoreNodeCache(path string) ([]peer.AddrInfo, error) {
 	return result, nil
 }
 
-func SaveNodeCache(result *CrawlOutput, cacheFile string) error {
+// SaveNodeCache saves a list of peer addresses to file.
+func (report *CrawlOutput) SaveNodeCache(cacheFile string) error {
 	var nodesSave []peer.AddrInfo
-	for _, node := range result.Nodes {
+	for _, node := range report.Nodes {
 		if node.Crawlable {
 			recreated := peer.AddrInfo{
 				ID:    node.ID,
