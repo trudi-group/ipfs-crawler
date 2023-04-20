@@ -16,12 +16,14 @@ For a Live Version of the crawler results, check out our [Periodic Measurements 
 
 ## In a Nutshell
 
-This crawler is designed to enumerate all reachable nodes within the DHT/KAD-part of the IPFS network and return their neighborhood graph.
+This crawler is designed to enumerate all reachable nodes within the DHT/KAD-part of libp2p networks and return their neighborhood graph.
 For each node it saves
 * The ID
 * All known multiaddresses that were found in the DHT
 * Whether it was reachable by the crawler or not, i.e., if a connection attempt was successful
-* The agent version.
+* The agent version
+* Supported protocols
+* Plugin-extensible metadata
 
 This is achieved by sending multiple `FindNode`-requests to each node in the network, targeted in such a way that each request extracts the contents of exactly one DHT bucket.
 
@@ -188,7 +190,7 @@ To get the default bootstrap peers of an IPFS node, simply run ```./ipfs bootstr
 
 ## Libp2p complains about key lengths
 
-Libp2p uses minimum keylenghts of [2048 bit](https://github.com/libp2p/go-libp2p-core/blob/master/crypto/rsa_common.go), whereas IPFS uses [512 bit](https://github.com/ipfs/infra/issues/378).
+Libp2p uses a minimum keylenght of [2048 bit](https://github.com/libp2p/go-libp2p-core/blob/master/crypto/rsa_common.go), whereas IPFS uses [512 bit](https://github.com/ipfs/infra/issues/378).
 Therefore, the crawler can only connect to one IPFS bootstrap node and refuses a connection with the others, due to this key length mismatch.
 Libp2p can be configured to ignore this mismatch via an environment variable:
 
