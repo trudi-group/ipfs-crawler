@@ -34,22 +34,29 @@ For an in-depth dive and discussion to the crawler and the obtained results, you
 
 [![Link to YouTube](https://img.youtube.com/vi/jQI37Y25jwk/1.jpg)](https://www.youtube.com/watch?v=jQI37Y25jwk)
 
+## Building
+
+You can build this in a containerized environment.
+This will build on Debian Bullseye and extract the compiled binary to `out/`:
+```bash
+./build-in-docker.sh
+```
+
 ## Run one or multiple crawls
 
 To run a single crawl simply do:
 
 ```bash
 make build
-./start_crawl
+./start_crawl.sh
 ```
 
 **Important note:** We ship the pre-images necessary for a successful crawl, but you can compute them yourself with `make preimages`.
 Note that the preimages only have to be computed *once*, it'll take some minutes, to compute them, though.
-`start_crawl` will be created at build time.
 
 One crawl will take 5-10 minutes, depending on your machine.
 
-For multiple crawls, use the `autocrawl.sh` script instead of `start_crawl` in the last line. It takes a duration in days and an optional directory to put logs into.
+For multiple crawls, use the `autocrawl.sh` script instead of `start_crawl.sh` in the last line. It takes a duration in days and an optional directory to put logs into.
 Note that there will be a lot of output on your disk, one week of crawling (without logs) can lead to 30-50GB of data!
 The complete workflow is:
 
