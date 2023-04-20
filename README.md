@@ -123,7 +123,8 @@ Each node entry corresponds to exactly one node on the network and has the follo
   "agent_version": "<if a connection was successful, the agent version string>",
   "supported_protcols": "<if a connection was successful, a list of protocols identifiers supported by the peer>",
   "crawl_started_timestamp": "<timestamp of the first connection attempt to the peer>", 
-  "crawl_finished_timestamp": "<timestamp after all interactions with the peer finished, whether successful or not>"
+  "crawl_finished_timestamp": "<timestamp after all interactions with the peer finished, whether successful or not>",
+  "plugin_data": "<map of plugin name to result of executing the plugin on the peer>"
 }
 ```
 
@@ -165,7 +166,23 @@ Data example (somewhat anonymized):
     "/x/",
     "/ipfs/kad/1.0.0",
     "/ipfs/id/1.0.0"
-  ]
+  ],
+  "plugin_data": {
+    "bitswap-probe": {
+      "error": null,
+      "result": {
+        "error": null,
+        "haves": null,
+        "dont_haves": [
+          {
+            "/": "QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU"
+          }
+        ],
+        "blocks": null,
+        "no_response": null
+      }
+    }
+  }
 }
 ```
 
