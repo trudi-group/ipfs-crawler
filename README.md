@@ -69,6 +69,18 @@ We've compiled the details [in the README](./eval/README.md)
 
 ## Features
 
+### Plugins
+
+We support implementing plugins that interact with peers discovered through a crawl.
+These plugins are executed, in order, for all peers that were crawled.
+(TODO: We should execute them even if a peer is just connectable, not crawlable.)
+Output of all plugins is collected and appended to each node's metadata.
+
+Currently implemented plugins:
+- `bitswap-probe` probes nodes for content via Bitswap.
+  This correctly handles different Bitswap versions and capabilities of the peers.
+  See also [the README](./plugins/bsprobe/README.md).
+
 ### Node Caching
 
 If configured, the crawler will cache the nodes it has seen.

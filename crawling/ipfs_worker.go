@@ -50,7 +50,7 @@ type IPFSWorker struct {
 	preimageHandler *PreimageHandler
 	host            host.Host
 	config          WorkerConfig
-	eventManager    *EventManager
+	plugins         []Plugin
 	closed          chan struct{}
 	closingLock     sync.Mutex
 }
@@ -62,11 +62,10 @@ type IPFSWorker struct {
 // :param id: ID of the new worker
 // :param ctx: context that the new worker will be attached to
 // :return: fully initialized worker
-func NewIPFSWorker(config WorkerConfig, eventManager *EventManager, preimageHandler *PreimageHandler) (*IPFSWorker, error) {
+func NewIPFSWorker(config WorkerConfig, pluginConfigs []PluginConfig, preimageHandler *PreimageHandler) (*IPFSWorker, error) {
 	w := &IPFSWorker{
 		preimageHandler: preimageHandler,
 		config:          config,
-		eventManager:    eventManager,
 		closed:          make(chan struct{}),
 	}
 
@@ -89,6 +88,13 @@ func NewIPFSWorker(config WorkerConfig, eventManager *EventManager, preimageHand
 		return nil, fmt.Errorf("unable to create libp2p host: %w", err)
 	}
 	w.host = h
+
+	// Create plugins
+	plugins, err := PluginsFromPluginConfigs(h, pluginConfigs)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create plugins: %w", err)
+	}
+	w.plugins = plugins
 
 	return w, nil
 }
@@ -174,9 +180,6 @@ func (w *IPFSWorker) CrawlPeer(askPeer peer.AddrInfo) (*NodeKnows, error) {
 		}
 	}
 
-	log.Debug("Fire connected callbacks")
-	w.eventManager.Emit("connected", w.host, publicAddrInfo)
-
 	// Get information about the peer from the peerstore.
 	var infos peerMetadata
 	agentVersion, err := w.host.Peerstore().Get(publicAddrInfo.ID, "AgentVersion")
@@ -198,7 +201,20 @@ func (w *IPFSWorker) CrawlPeer(askPeer peer.AddrInfo) (*NodeKnows, error) {
 		infos.SupportedProtocols = p
 	}
 
-	return &NodeKnows{id: publicAddrInfo.ID, knows: returnedPeers, info: infos}, nil
+	pluginResults := make(map[string]PluginResult)
+	for _, p := range w.plugins {
+		log.WithField("remote", askPeer.ID).WithField("plugin", p.Name()).Debug("executing plugin")
+		res, err := p.HandlePeer(askPeer)
+		if err != nil {
+			log.WithError(err).WithField("remote", askPeer.ID).WithField("plugin", p.Name()).Debug("plugin failed")
+		}
+		pluginResults[p.Name()] = PluginResult{
+			Error:  err,
+			Result: res,
+		}
+	}
+
+	return &NodeKnows{id: publicAddrInfo.ID, knows: returnedPeers, info: infos, pluginResults: pluginResults}, nil
 }
 
 // fullNeighborCrawl systematically reads the dht buckets from remote node.
@@ -287,6 +303,14 @@ func (w *IPFSWorker) Stop() error {
 		close(w.closed)
 	}
 	w.closingLock.Unlock()
+
+	// Close plugins
+	for _, p := range w.plugins {
+		err := p.Shutdown()
+		if err != nil {
+			return fmt.Errorf("unable to shut down plugin %s: %w", p.Name(), err)
+		}
+	}
 
 	// Close libp2p host
 	err := w.host.Close()

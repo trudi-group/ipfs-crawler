@@ -19,13 +19,19 @@ type crawlOutputJSON struct {
 }
 
 type crawledNodeJSON struct {
-	MultiAddrs             []ma.Multiaddr `json:"multiaddrs"`
-	AgentVersion           string         `json:"agent_version"`
-	ID                     peer.ID        `json:"id"`
-	Crawlable              bool           `json:"crawlable"`
-	CrawlStartedTimestamp  time.Time      `json:"crawl_started_timestamp"`
-	CrawlFinishedTimestamp time.Time      `json:"crawl_finished_timestamp"`
-	SupportedProtocols     []string       `json:"supported_protocols"`
+	MultiAddrs             []ma.Multiaddr              `json:"multiaddrs"`
+	AgentVersion           string                      `json:"agent_version"`
+	ID                     peer.ID                     `json:"id"`
+	Crawlable              bool                        `json:"crawlable"`
+	CrawlStartedTimestamp  time.Time                   `json:"crawl_started_timestamp"`
+	CrawlFinishedTimestamp time.Time                   `json:"crawl_finished_timestamp"`
+	SupportedProtocols     []string                    `json:"supported_protocols"`
+	PluginData             map[string]pluginResultJSON `json:"plugin_data"`
+}
+
+type pluginResultJSON struct {
+	Error  *string     `json:"error"`
+	Result interface{} `json:"result"`
 }
 
 func ReportToFile(report *CrawlOutput, startTs time.Time, endTs time.Time, path string) error {
@@ -39,7 +45,21 @@ func ReportToFile(report *CrawlOutput, startTs time.Time, endTs time.Time, path 
 			CrawlStartedTimestamp:  node.CrawlStartedTimestamp,
 			CrawlFinishedTimestamp: node.CrawlFinishedTimestamp,
 			SupportedProtocols:     node.SupportedProtocols,
+			PluginData:             make(map[string]pluginResultJSON),
 		}
+
+		for pn, pr := range node.PluginData {
+			var errString *string
+			if pr.Error != nil {
+				tmp := pr.Error.Error()
+				errString = &tmp
+			}
+			jsonFormatted.PluginData[pn] = pluginResultJSON{
+				Error:  errString,
+				Result: pr.Result,
+			}
+		}
+
 		nodes = append(nodes, jsonFormatted)
 	}
 	crawlOutput := crawlOutputJSON{StartDate: startTs, EndDate: endTs, Nodes: nodes}

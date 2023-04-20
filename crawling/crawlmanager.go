@@ -19,9 +19,15 @@ type CrawlerWorker interface {
 
 // NodeKnows stores the collected addresses for a given ID
 type NodeKnows struct {
-	id    peer.ID
-	knows []peer.AddrInfo
-	info  peerMetadata
+	id            peer.ID
+	knows         []peer.AddrInfo
+	info          peerMetadata
+	pluginResults map[string]PluginResult
+}
+
+type PluginResult struct {
+	Error  error
+	Result interface{}
 }
 
 type peerMetadata struct {
@@ -45,6 +51,7 @@ type CrawledNode struct {
 	CrawlStartedTimestamp  time.Time
 	CrawlFinishedTimestamp time.Time
 	SupportedProtocols     []string
+	PluginData             map[string]PluginResult
 }
 
 type CrawlResult struct {
@@ -53,10 +60,11 @@ type CrawlResult struct {
 }
 
 type CrawlerConfig struct {
-	NumWorkers         int          `yaml:"num_workers"`
-	BootstrapPeers     []string     `yaml:"bootstrap_peers"`
-	ConcurrentRequests int          `yaml:"concurrent_requests"`
-	WorkerConfig       WorkerConfig `yaml:"worker_config"`
+	NumWorkers         int            `yaml:"num_workers"`
+	BootstrapPeers     []string       `yaml:"bootstrap_peers"`
+	ConcurrentRequests int            `yaml:"concurrent_requests"`
+	WorkerConfig       WorkerConfig   `yaml:"worker_config"`
+	Plugins            []PluginConfig `yaml:"plugins"`
 }
 
 type CrawlManager struct {
@@ -64,28 +72,31 @@ type CrawlManager struct {
 	toCrawl          []peer.AddrInfo
 	tokenBucket      chan int
 	workers          []CrawlerWorker
-	crawlsInProgress int
+	crawlsInProgress map[peer.ID]struct{}
 
 	// We use this map not only to store whether we crawled a node but also to store a nodes multiaddresses
-	crawled      map[peer.ID][]ma.Multiaddr
-	knows        map[peer.ID][]peer.ID
-	online       map[peer.ID]bool
-	peerMetadata map[peer.ID]peerMetadata
+	crawled       map[peer.ID][]ma.Multiaddr
+	knows         map[peer.ID][]peer.ID
+	online        map[peer.ID]bool
+	peerMetadata  map[peer.ID]peerMetadata
+	pluginResults map[peer.ID]map[string]PluginResult
 }
 
-func NewCrawlManager(config CrawlerConfig, em *EventManager, ph *PreimageHandler) (*CrawlManager, error) {
+func NewCrawlManager(config CrawlerConfig, ph *PreimageHandler) (*CrawlManager, error) {
 	cm := &CrawlManager{
-		resultChan:   make(chan CrawlResult),
-		tokenBucket:  make(chan int, config.NumWorkers*config.ConcurrentRequests),
-		crawled:      make(map[peer.ID][]ma.Multiaddr),
-		online:       make(map[peer.ID]bool),
-		knows:        make(map[peer.ID][]peer.ID),
-		peerMetadata: make(map[peer.ID]peerMetadata),
+		resultChan:       make(chan CrawlResult),
+		tokenBucket:      make(chan int, config.NumWorkers*config.ConcurrentRequests),
+		crawled:          make(map[peer.ID][]ma.Multiaddr),
+		online:           make(map[peer.ID]bool),
+		knows:            make(map[peer.ID][]peer.ID),
+		peerMetadata:     make(map[peer.ID]peerMetadata),
+		pluginResults:    make(map[peer.ID]map[string]PluginResult),
+		crawlsInProgress: make(map[peer.ID]struct{}),
 	}
 
 	// Create workers
 	for i := 0; i < config.NumWorkers; i++ {
-		worker, err := NewIPFSWorker(config.WorkerConfig, em, ph)
+		worker, err := NewIPFSWorker(config.WorkerConfig, config.Plugins, ph)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create worker: %w", err)
 		}
@@ -140,7 +151,7 @@ func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 	for {
 		// check if we can break the loop
 		if len(cm.toCrawl) == 0 &&
-			cm.crawlsInProgress == 0 {
+			len(cm.crawlsInProgress) == 0 {
 			log.Info("Stopping crawl...")
 			break
 		}
@@ -148,7 +159,10 @@ func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 		select {
 		case report := <-cm.resultChan:
 			// We have new information incoming
-			cm.crawlsInProgress--
+			if _, ok := cm.crawlsInProgress[report.Node.id]; !ok {
+				panic("received result for untracked crawl")
+			}
+			delete(cm.crawlsInProgress, report.Node.id)
 			node := report.Node
 			err := report.Err
 			if err != nil {
@@ -164,11 +178,12 @@ func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 			cm.online[node.id] = true
 			cm.knows[node.id] = AddrInfoToID(node.knows)
 			cm.peerMetadata[node.id] = node.info // TODO: make the map merge together not overwrite each other
+			cm.pluginResults[node.id] = node.pluginResults
 			for _, p := range node.knows {
 				cm.handleInputNodes(p)
 			}
 			log.WithFields(log.Fields{
-				"Current Request": cm.crawlsInProgress,
+				"Current Request": len(cm.crawlsInProgress),
 				"toCrawl":         len(cm.toCrawl),
 				"Reports":         len(cm.resultChan),
 			}).Debug("Status of Manager")
@@ -179,10 +194,15 @@ func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 				var node peer.AddrInfo
 				node, cm.toCrawl = cm.toCrawl[0], cm.toCrawl[1:]
 
-				log.WithFields(log.Fields{"node": node.ID}).Debug("dispatching crawl request")
-
-				cm.crawlsInProgress++
-				go cm.dispatch(node, id)
+				// Check if we're already crawling that node
+				if _, ok := cm.crawlsInProgress[node.ID]; ok {
+					log.WithFields(log.Fields{"node": node.ID}).Debug("already being crawled, not dispatching crawl request")
+					cm.tokenBucket <- id
+				} else {
+					log.WithFields(log.Fields{"node": node.ID}).Debug("dispatching crawl request")
+					cm.crawlsInProgress[node.ID] = struct{}{}
+					go cm.dispatch(node, id)
+				}
 			} else {
 				// nothing to do; return token
 				cm.tokenBucket <- id
@@ -194,7 +214,7 @@ func (cm *CrawlManager) CrawlNetwork() *CrawlOutput {
 			log.WithFields(log.Fields{
 				"discovered nodes":            len(cm.crawled),
 				"available workers":           len(cm.tokenBucket),
-				"requests in flight":          cm.crawlsInProgress,
+				"requests in flight":          len(cm.crawlsInProgress),
 				"to-crawl-queue":              len(cm.toCrawl),
 				"connectable+crawlable nodes": len(cm.online),
 			}).Info("Periodic info on crawl status")
@@ -212,7 +232,7 @@ func (cm *CrawlManager) dispatch(node peer.AddrInfo, id int) {
 	if err != nil {
 		log.WithError(err).WithField("peer", node).Debug("unable to crawl node")
 	} else {
-		log.WithField("result", result).Debug("crawled node")
+		log.WithField("Result", result).Debug("crawled node")
 	}
 
 	if result == nil {
@@ -286,6 +306,10 @@ func (cm *CrawlManager) createReport() *CrawlOutput {
 			status.CrawlStartedTimestamp = metadata.CrawlStartedTimestamp
 			status.CrawlFinishedTimestamp = metadata.CrawlFinishedTimestamp
 			status.SupportedProtocols = metadata.SupportedProtocols
+		}
+
+		if pluginResults, ok := cm.pluginResults[node]; ok {
+			status.PluginData = pluginResults
 		}
 
 		out.Nodes[node] = status
