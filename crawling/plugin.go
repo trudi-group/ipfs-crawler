@@ -54,8 +54,10 @@ type Plugin interface {
 	Name() string
 
 	// HandlePeer measures the given peer.
-	// The underlying libp2p node should usually have an open connection to the
-	// peer.
+	// The underlying libp2p node should have an open connection to the peer.
+	// The success value returned must be serializable to JSON and will be
+	// copied verbose into the crawl output.
+	// TODO maybe this only needs peer ID? Or network.Conn?
 	HandlePeer(info peer.AddrInfo) (interface{}, error)
 
 	// Shutdown ensures clean shutdown of this plugin.
