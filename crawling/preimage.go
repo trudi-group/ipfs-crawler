@@ -25,12 +25,13 @@ func LoadPreimages(path string) (*PreimageHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	preImages := make(map[string]string)
 	var scanner *bufio.Scanner
 	if strings.HasSuffix(path, ".zst") {
 		compressed := zstd.NewReader(file)
+		defer func() { _ = compressed.Close() }()
 		scanner = bufio.NewScanner(compressed)
 	} else {
 		scanner = bufio.NewScanner(file)
@@ -41,8 +42,18 @@ func LoadPreimages(path string) (*PreimageHandler, error) {
 	// Decode input lines
 	for scanner.Scan() {
 		line := scanner.Text()
-		splitLine := strings.Split(line, ";")
-		preImages[splitLine[0]] = splitLine[1]
+		split := strings.Split(line, ";")
+
+		target, err := hex.DecodeString(split[0])
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode target: %w", err)
+		}
+		preimage, err := hex.DecodeString(split[1])
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode preimage: %w", err)
+		}
+
+		preImages[string(target)] = string(preimage)
 	}
 
 	return &PreimageHandler{preimages: preImages}, nil
@@ -100,9 +111,10 @@ func (ph *PreimageHandler) findPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 	}
 
 	// Lookup the preimage in our "database"
-	unhashed, err := hex.DecodeString(ph.preimages[s])
+	// TODO remove the binary-to-hex-to-binary dance
+	b, err := hex.DecodeString(s)
 	if err != nil {
 		panic(err)
 	}
-	return unhashed
+	return []byte(ph.preimages[string(b)])
 }
