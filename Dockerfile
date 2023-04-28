@@ -1,6 +1,11 @@
 FROM golang:1.20-bullseye AS builder
 
 WORKDIR /usr/src/ipfs-crawler/
+# Download all dependencies first, this should be cached.
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
 COPY . .
 RUN make build
 
