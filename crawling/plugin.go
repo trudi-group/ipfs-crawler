@@ -81,13 +81,14 @@ func NewPlugin(name string, h host.Host, optionBytes []byte) (Plugin, error) {
 	return d.NewImpl(h, optionBytes)
 }
 
-// PluginConfig is the generic configuration format used for all registered Plugins.
+// PluginConfig is the generic configuration format used for all registered
+// Plugins.
 type PluginConfig struct {
 	Name    string                 `yaml:"name"`
 	Options map[string]interface{} `yaml:"options"`
 }
 
-// PluginsFromPluginConfigs is a utility function for initializing Plugins in bulk.
+// PluginsFromPluginConfigs is a utility function to initialize Plugins in bulk.
 func PluginsFromPluginConfigs(h host.Host, cfgs []PluginConfig) ([]Plugin, error) {
 	var plugins []Plugin
 
