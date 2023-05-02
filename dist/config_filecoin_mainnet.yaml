@@ -1,9 +1,6 @@
 # Path to a directory to where peer metadata and the overlay graph will be written.
 output_directory_path: "output_data_crawls/filecoin/mainnet"
 
-# Path to the (compressed) preimage file.
-preimage_file_path: "precomputed_hashes/preimages.csv.zst"
-
 # Path to a file to use as a node cache.
 # The node cache is read at startup. All peers in the node cache will be
 # contacted by the crawler. This should speed up the crawl, but only works if
@@ -18,6 +15,9 @@ crawler:
 
   # The maximum number of concurrent in-flight requests.
   concurrent_requests: 1000
+
+  # Path to the (compressed) preimage file.
+  preimage_file_path: "precomputed_hashes/preimages.csv.zst"
 
   # The bootstrap peers to connect to.
   bootstrap_peers:
@@ -49,14 +49,16 @@ crawler:
     # The number of times a connection attempt will be made.
     connection_attempts: 3
 
+  # Configuration for the crawler "plugin"
+  crawler_config:
     # The timeout for non-connection interactions.
     # These are steps of the crawling process, such as establishing a stream and
     # requesting a set of known peers. As such the total timeout to get all
     # neighbors of a peer is a multiple of this.
-    interaction_timeout: 20s
+    interaction_timeout: 5s
 
     # The number of times each interaction is attempted.
-    interaction_attempts: 3
+    interaction_attempts: 10
 
     # The protocols to use for crawling.
     protocol_strings:

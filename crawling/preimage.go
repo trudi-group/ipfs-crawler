@@ -62,7 +62,7 @@ func LoadPreimages(path string) (*PreimageHandler, error) {
 // Given a common prefix length and the ID of the peer we're asking, this
 // function builds an appropriate binary string with the target CPL and returns
 // the corresponding pre-image.
-func (ph *PreimageHandler) findPreImageForCPL(targetPeer peer.AddrInfo, cpl uint8) []byte {
+func (ph *PreimageHandler) findPreImageForCPL(targetPeer peer.ID, cpl uint8) []byte {
 	// Roadmap:
 	// * We take the target's ID until CPL -> we have a common prefix of at least this length
 	// * We then flip the next bit of the ID so we're sure to be different
@@ -82,7 +82,7 @@ func (ph *PreimageHandler) findPreImageForCPL(targetPeer peer.AddrInfo, cpl uint
 
 	// We cannot work with the multihash, so use the IPFS-internal function to convert the peerID multihash.
 	// Practically this means just hashing
-	binID := kb.ConvertPeerID(targetPeer.ID)
+	binID := kb.ConvertPeerID(targetPeer)
 
 	// Until bitPosition-1 we want to take the target's ID. The bit at bitPosition should be inverted to the ID.
 	// So we take that as well and build an approriate bitmask for this task

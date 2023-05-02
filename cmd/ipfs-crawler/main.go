@@ -22,14 +22,11 @@ type Config struct {
 	// Path to output directory.
 	OutputDirectoryPath string `yaml:"output_directory_path"`
 
-	// Path to the preimage file.
-	PreimageFilePath string `yaml:"preimage_file_path"`
-
 	// File where the nodes between crawls are cached (if caching is enabled).
 	CacheFilePath *string `yaml:"cache_file_path"`
 
 	// Settings for the crawler.
-	CrawlOptions crawlLib.CrawlerConfig `yaml:"crawler"`
+	CrawlOptions crawlLib.CrawlManagerConfig `yaml:"crawler"`
 }
 
 func main() {
@@ -81,15 +78,8 @@ func main() {
 	}
 	log.WithField("path", config.OutputDirectoryPath).Info("writing results to")
 
-	// Load preimageHandler
-	preimageHandler, err := crawlLib.LoadPreimages(config.PreimageFilePath)
-	if err != nil {
-		log.Fatal(fmt.Errorf("unable to load preimages: %w", err))
-	}
-	log.WithField("path", config.PreimageFilePath).Info("loaded preimages")
-
 	// Create crawl manager
-	cm, err := crawlLib.NewCrawlManager(config.CrawlOptions, preimageHandler)
+	cm, err := crawlLib.NewCrawlManager(config.CrawlOptions)
 	if err != nil {
 		log.Fatal(fmt.Errorf("unable to set up crawler: %w", err))
 	}

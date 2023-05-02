@@ -20,9 +20,10 @@ This crawler is designed to enumerate all reachable nodes within the DHT/KAD-par
 For each node it saves
 * The ID
 * All known multiaddresses that were found in the DHT
-* Whether it was reachable by the crawler or not, i.e., if a connection attempt was successful
-* The agent version
-* Supported protocols
+* If a connection could be established
+* All peers in the routing table of the peer, if crawling succeeded
+* The agent version, if the identify protocol succeeded
+* Supported protocols, if the identify protocol succeeded
 * Plugin-extensible metadata
 
 This is achieved by sending multiple `FindNode`-requests to each node in the network, targeted in such a way that each request extracts the contents of exactly one DHT bucket.
@@ -83,8 +84,7 @@ We've compiled the details [in the README](./eval/README.md)
 ### Plugins
 
 We support implementing plugins that interact with peers discovered through a crawl.
-These plugins are executed, in order, for all peers that were crawled.
-(TODO: We should execute them even if a peer is just connectable, not crawlable.)
+These plugins are executed, in order, for all peers that are connectable.
 Output of all plugins is collected and appended to each node's metadata.
 
 Currently implemented plugins:
@@ -118,13 +118,24 @@ Each node entry corresponds to exactly one node on the network and has the follo
 ```json
 {
   "id": "<multihash of the node id>",
-  "multiaddrs": ["<multiaddress_1>", "<multiaddress_2>", "<multiaddress_n>"],
-  "crawlable": "<whether our crawler could connect to the peer and enumerate all its neighbors>",
-  "agent_version": "<if a connection was successful, the agent version string>",
-  "supported_protcols": "<if a connection was successful, a list of protocols identifiers supported by the peer>",
-  "crawl_started_timestamp": "<timestamp of the first connection attempt to the peer>", 
-  "crawl_finished_timestamp": "<timestamp after all interactions with the peer finished, whether successful or not>",
-  "plugin_data": "<map of plugin name to result of executing the plugin on the peer>"
+  "multiaddrs": <list of multiaddresses>,
+  "connection_error": null | "<human-readable error>",
+  "result": null (if connection_error != null) | {
+    "agent_version": "<agent version string, if known>",
+    "supported_protocols": <list of supported protocols>,
+    "crawl_begin_ts": "<timestamp of when crawling was initiated>",
+    "crawl_end_ts": "<timestamp of when crawling was finished>",
+    "crawl_error": null | "<human-readable error>",
+    "crawl_result": null (if crawl_error != null) | <list of neighbor peer IDs>,
+    "plugin_results": null | {
+      "<plugin name>": {
+        "begin_timestamp": "<timestamp of when the plugin was executed on the peer>",
+        "end_timestamp": "<timestamp of when the plugin finished executing on the peer>",
+        "error": null | "<human-redable error>",
+        "result": null (if error != null) | <return value of executing the plugin>
+      }
+    }
+  }
 }
 ```
 
@@ -135,51 +146,48 @@ The Node's ID is a [multihash](https://github.com/multiformats/multihash), the a
 Data example (somewhat anonymized):
 ```json
 {
+  "id": "12D3KooWDwu...",
   "multiaddrs": [
+    "/ip6/::1/udp/4001/quic",
     "/ip4/127.0.0.1/udp/4001/quic",
-    "/ip4/172.17.0.5/tcp/4001",
-    "/ip4/54.37.x.x/tcp/50027",
-    "/ip4/54.37.x.x/udp/4001/quic",
-    "/ip4/127.0.0.1/tcp/4001",
-    "/ip4/172.17.0.5/udp/4001/quic",
-    "/ip4/54.37.x.x/tcp/4001",
-    "/ip4/54.37.x.x/udp/4001/quic-v1"
+    "/ip4/154.x.x.x/udp/4001/quic",
+    "..."
   ],
-  "agent_version": "kubo/0.19.0-dev/f73cd19/docker",
-  "id": "QmZuP2QQeHGZ...",
-  "crawlable": true,
-  "crawl_started_timestamp": "2023-04-14T03:17:41.870584726+01:00",
-  "crawl_finished_timestamp": "2023-04-14T03:17:42.105222692+01:00",
-  "supported_protocols": [
-    "/ipfs/bitswap/1.2.0",
-    "/ipfs/bitswap/1.1.0",
-    "/ipfs/bitswap",
-    "/libp2p/circuit/relay/0.1.0",
-    "/libp2p/circuit/relay/0.2.0/stop",
-    "/ipfs/id/push/1.0.0",
-    "/ipfs/ping/1.0.0",
-    "/libp2p/autonat/1.0.0",
-    "/libp2p/circuit/relay/0.2.0/hop",
-    "/libp2p/dcutr",
-    "/ipfs/lan/kad/1.0.0",
-    "/ipfs/bitswap/1.0.0",
-    "/x/",
-    "/ipfs/kad/1.0.0",
-    "/ipfs/id/1.0.0"
-  ],
-  "plugin_data": {
-    "bitswap-probe": {
-      "error": null,
-      "result": {
+  "connection_error": null,
+  "result": {
+    "agent_version": "kubo/0.18.1/675f8bd/docker",
+    "supported_protocols": [
+      "/libp2p/circuit/relay/0.2.0/hop",
+      "/ipfs/ping/1.0.0",
+      "...",
+      "/ipfs/id/1.0.0",
+      "/ipfs/id/push/1.0.0"
+    ],
+    "crawl_begin_ts": "2023-04-27T15:57:11.782371723+02:00",
+    "crawl_end_ts": "2023-04-27T15:57:13.434195769+02:00",
+    "crawl_error": null,
+    "crawl_result": [
+      "12D3KooWLA...",
+      "12D3KooWA8...",
+      "QmYBEXLhD7...",
+      "..."
+    ],
+    "plugin_data": {
+      "bitswap-probe": {
+        "begin_timestamp": "2023-04-27T15:57:14.434195769+02:00",
+        "end_timestamp": "2023-04-27T15:57:15.434195769+02:00",
         "error": null,
-        "haves": null,
-        "dont_haves": [
-          {
-            "/": "QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU"
-          }
-        ],
-        "blocks": null,
-        "no_response": null
+        "result": {
+          "error": null,
+          "haves": null,
+          "dont_haves": [
+            {
+              "/": "QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU"
+            }
+          ],
+          "blocks": null,
+          "no_response": null
+        }
       }
     }
   }

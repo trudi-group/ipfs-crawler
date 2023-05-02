@@ -8,7 +8,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
-	log "github.com/sirupsen/logrus"
 )
 
 // parsePeerString arses an IPFS peer string and converts it into an
@@ -27,15 +26,6 @@ func parsePeerString(text string) (*peer.AddrInfo, error) {
 		return ainfo, nil
 	}
 	return nil, peer.ErrInvalidAddr
-}
-
-// addrInfosToIDs extracts peer IDs from addresses.
-func addrInfosToIDs(addrs []peer.AddrInfo) []peer.ID {
-	peers := make([]peer.ID, len(addrs))
-	for i, addr := range addrs {
-		peers[i] = addr.ID
-	}
-	return peers
 }
 
 // filterOutOldAddresses filters the addresses given in new with the addresses
@@ -60,24 +50,16 @@ func filterOutOldAddresses(old []ma.Multiaddr, new []ma.Multiaddr) []ma.Multiadd
 }
 
 // stripLocalAddrs removes local addresses from the given set of addresses.
-func stripLocalAddrs(pinfo peer.AddrInfo) peer.AddrInfo {
-	// We skip local and private addresses and return a new peer.AddrInfo.
-	// However, we create new MultiAddr objects to be on the safe side.
+// Returns a copy of the slice.
+func stripLocalAddrs(mas []ma.Multiaddr) []ma.Multiaddr {
+	out := make([]ma.Multiaddr, 0, len(mas))
 
-	strippedPinfo := peer.AddrInfo{
-		ID:    pinfo.ID,
-		Addrs: make([]ma.Multiaddr, 0),
-	}
-	for _, maddr := range pinfo.Addrs {
+	for _, maddr := range mas {
 		if manet.IsPrivateAddr(maddr) || manet.IsIPLoopback(maddr) {
 			continue
 		}
-		newAddr, err := ma.NewMultiaddr(maddr.String())
-		if err != nil {
-			log.WithField("err", err).Warn("Error creating multiaddr")
-			continue
-		}
-		strippedPinfo.Addrs = append(strippedPinfo.Addrs, newAddr)
+		out = append(out, maddr)
 	}
-	return strippedPinfo
+
+	return out
 }
