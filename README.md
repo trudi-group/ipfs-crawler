@@ -126,7 +126,6 @@ Each node entry corresponds to exactly one node on the network and has the follo
     "crawl_begin_ts": "<timestamp of when crawling was initiated>",
     "crawl_end_ts": "<timestamp of when crawling was finished>",
     "crawl_error": null | "<human-readable error>",
-    "crawl_result": null (if crawl_error != null) | <list of neighbor peer IDs>,
     "plugin_results": null | {
       "<plugin name>": {
         "begin_timestamp": "<timestamp of when the plugin was executed on the peer>",
@@ -166,12 +165,6 @@ Data example (somewhat anonymized):
     "crawl_begin_ts": "2023-04-27T15:57:11.782371723+02:00",
     "crawl_end_ts": "2023-04-27T15:57:13.434195769+02:00",
     "crawl_error": null,
-    "crawl_result": [
-      "12D3KooWLA...",
-      "12D3KooWA8...",
-      "QmYBEXLhD7...",
-      "..."
-    ],
     "plugin_data": {
       "bitswap-probe": {
         "begin_timestamp": "2023-04-27T15:57:14.434195769+02:00",

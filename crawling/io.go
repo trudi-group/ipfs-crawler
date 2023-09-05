@@ -34,7 +34,7 @@ type crawledNodeJSON struct {
 
 // crawledNodeDataJSON is a helper struct to serialize information about a
 // single node to JSON.
-// The fields CrawlError and CrawlResult are mutually exclusive.
+// The field CrawlError indicates whether an error occurred during crawling.
 type crawledNodeDataJSON struct {
 	AgentVersion       string        `json:"agent_version"`
 	SupportedProtocols []protocol.ID `json:"supported_protocols"`
@@ -42,7 +42,6 @@ type crawledNodeDataJSON struct {
 	CrawlBeginTs time.Time `json:"crawl_begin_ts"`
 	CrawlEndTs   time.Time `json:"crawl_end_ts"`
 	CrawlError   *string   `json:"crawl_error"`
-	CrawlResult  []peer.ID `json:"crawl_result"`
 
 	PluginData map[string]pluginResultJSON `json:"plugin_data"`
 }
@@ -98,8 +97,6 @@ func (r nodeCrawlStatus) toCrawledNode(addrBook map[peer.ID][]ma.Multiaddr, id p
 		res.Result.CrawlError = &tmp
 		return res
 	}
-
-	res.Result.CrawlResult = r.result.crawlNeighbors
 
 	return res
 }
