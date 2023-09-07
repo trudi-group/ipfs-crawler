@@ -16,9 +16,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// MaxCPL is the maximum prefix length we can probe.
-const MaxCPL = 24
-
 // CrawlerConfig contains the configuration for the crawler.
 type CrawlerConfig struct {
 	ProtocolStrings []protocol.ID `yaml:"protocol_strings"`

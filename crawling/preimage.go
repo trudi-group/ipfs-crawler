@@ -12,6 +12,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
+// MaxCPL is the maximum prefix length we can probe.
+const MaxCPL = 24
+
 // The PreimageHandler handles selection of the correct preimages to extract
 // information from specific Kademlia buckets of a peer.
 type PreimageHandler struct {
