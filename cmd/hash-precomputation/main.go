@@ -27,7 +27,7 @@ func main() {
 
 	// Map of hashes (as binary strings) to their preimage.
 	preimages := make(map[string]string, numCombinations)
-	preimage := make([]byte, 32)
+	preimage := make([]byte, 8)
 
 	// Keep track of keys (= hashes) so we can nicely sort them later
 	var keys []string
@@ -58,7 +58,7 @@ func main() {
 	sort.Strings(keys)
 
 	// Write results
-	file, err := os.OpenFile(outFile, os.O_CREATE|os.O_RDWR, 0o666)
+	file, err := os.Create(outFile)
 	if err != nil {
 		panic(err)
 	}
