@@ -69,7 +69,7 @@ make build
 ## Configuration
 
 The crawler is configured via a YAML configuration file.
-Example configurations with sane defaults is provided in [dist/](dist):
+Example configurations with sane defaults are provided in [dist/](dist):
 - [dist/config_ipfs.yaml](dist/config_ipfs.yaml) contains a configuration to crawl the IPFS network.
 - [dist/config_filecoin_mainnet.yaml](dist/config_filecoin_mainnet.yaml) contains a configuration to crawl the Filecoin mainnet.
 
