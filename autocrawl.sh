@@ -49,9 +49,9 @@ while [[ $(date +%s) -le $endTime ]]
 do
 	echo "Crawl no. $counter"
 	if [[ "$logdir" == "" ]]; then
-		./start_crawl 2> /dev/null
+		./start_crawl.sh 2> /dev/null
 	else
-		./start_crawl 2> $logdir/crawl_log_"$(date --rfc-3339='seconds')"_$counter
+		./start_crawl.sh 2> $logdir/crawl_log_"$(date --rfc-3339='seconds')"_$counter
 	fi
 	((counter++))
 done

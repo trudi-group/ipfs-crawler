@@ -1,117 +1,124 @@
 package crawling
-import(
-  "bufio"
-  "strings"
-  "os"
-  "fmt"
-  "encoding/hex"
-  peer "github.com/libp2p/go-libp2p-core/peer"
-  kb "github.com/libp2p/go-libp2p-kbucket"
-  "github.com/DataDog/zstd"
+
+import (
+	"bufio"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/DataDog/zstd"
+	kb "github.com/libp2p/go-libp2p-kbucket"
+	"github.com/libp2p/go-libp2p/core/peer"
+	log "github.com/sirupsen/logrus"
 )
 
+// MaxCPL is the maximum prefix length we can probe.
+const MaxCPL = 24
 
-type PreImageHandler struct {
-	PreImages map[string]string
+// The PreimageHandler handles selection of the correct preimages to extract
+// information from specific Kademlia buckets of a peer.
+type PreimageHandler struct {
+	// This stores preimages for Kademlia ID prefixes.
+	// Each preimage is an 8-byte array, stored as big endian within a uint64.
+	// The index is a uint32 of which the _lower_ three bytes denote the 24-bit
+	// prefix. The upper byte must be zero.
+	preimages [0x01 << MaxCPL]uint64
 }
 
-func LoadPreimages(path string, mapsize int) (map[string]string, error) {
+// LoadPreimages loads precomputed preimages from a potentially Zst-compressed
+// file.
+// Hashes in the file must be presented as binary strings, whereas preimages
+// are hex-encoded 8-byte binary values.
+func LoadPreimages(path string) (*PreimageHandler, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-	preImages := make(map[string]string, mapsize)
-    var scanner *bufio.Scanner
-    if strings.HasSuffix(path, ".zst") {
-        compressed := zstd.NewReader(file)
-        scanner = bufio.NewScanner(compressed)
-    }else{
-        scanner = bufio.NewScanner(file)
-    }
+	defer func() { _ = file.Close() }()
+
+	preimages := [0x01 << MaxCPL]uint64{}
+	var scanner *bufio.Scanner
+	if strings.HasSuffix(path, ".zst") {
+		compressed := zstd.NewReader(file)
+		defer func() { _ = compressed.Close() }()
+		scanner = bufio.NewScanner(compressed)
+	} else {
+		scanner = bufio.NewScanner(file)
+	}
 
 	// Throw away the header line
 	scanner.Scan()
+	// Decode input lines
 	for scanner.Scan() {
 		line := scanner.Text()
-		splitLine := strings.Split(line, ";")
-		preImages[splitLine[0]] = splitLine[1]
+		split := strings.Split(line, ";")
+
+		// Extract the target prefix.
+		var b1, b2, b3 uint8
+		_, err := fmt.Sscanf(split[0], "%08b%08b%08b", &b1, &b2, &b3)
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode target: %w", err)
+		}
+		target := uint32(b1)<<16 |
+			uint32(b2)<<8 |
+			uint32(b3)<<0
+
+		// Extract the preimage.
+		preimage, err := hex.DecodeString(split[1])
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode preimage: %w", err)
+		}
+		if len(preimage) != 8 {
+			return nil, fmt.Errorf("expected 8-byte preimage, got %d bytes", len(preimage))
+		}
+
+		// Store within a uint64.
+		preimageUint := binary.BigEndian.Uint64(preimage)
+
+		preimages[target] = preimageUint
 	}
 
-	return preImages, nil
-	// file, err := os.Open(path)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// defer file.Close()
-	// preImages := make(map[string]string, mapsize)
-
-	// scanner := bufio.NewScanner(file)
-	// // Throw away the header line
-	// scanner.Scan()
-	// for scanner.Scan() {
-	// 	line := scanner.Text()
- //    fmt.Println(line)
-	// 	splitLine := strings.Split(line, ";")
-	// 	preImages[splitLine[0]] = splitLine[1]
-	// }
-
-	// return preImages, nil
+	return &PreimageHandler{preimages: preimages}, nil
 }
 
-// Given a common prefix length and the ID of the peer we're asking, this function builds an approriate binary string with
-// the target CPL and returns the corresponding pre-image.
-func (ph *PreImageHandler) FindPreImageForCPL(targetPeer peer.AddrInfo, cpl uint8) []byte {
+// Given a common prefix length and the ID of the peer we're asking, this
+// function builds an appropriate binary string with the target CPL and returns
+// the corresponding pre-image.
+func (ph *PreimageHandler) findPreImageForCPL(targetPeer peer.ID, cpl uint8) []byte {
 	// Roadmap:
-	// * We take the target's ID until CPL -> we have a common prefix of at least this length
-	// * We then flip the next bit of the ID so we're sure to be different
-	// * Convert the resulting bytes to string and look up the preimage in our database
+	// - Convert target peer ID to Kademlia keyspace
+	// - Take the first three bytes
+	// - Flip the bit at position cpl+1, i.e., make sure we have a common prefix
+	//	 of length cpl, and the bit immediately after that is flipped.
+	// - Convert the three bytes to a uint32 for lookup, return the preimage
 
-	// ToDo: this could be generic
-	if cpl > 23 {
-		panic("CPL > 23 not possible.")
+	if cpl > MaxCPL-1 {
+		panic(fmt.Sprintf("CPL > %d not calculated", MaxCPL-1))
 	}
 
-	// Since the CPL could span multiple bytes, we have to determine in which byte we work
-	var byteNum uint8
-	byteNum = cpl/8
+	// The peer ID is given as a multihash, which needs to be mapped onto the
+	// Kademlia ID space first.
+	// In practice, this means it's SHA256 hashed.
+	binID := kb.ConvertPeerID(targetPeer)
 
-	// As well as the position within the byte
-	bitPosition := cpl%8
+	// Create uint32 from that, which we need for indexing.
+	target := uint32(binID[0])<<24 |
+		uint32(binID[1])<<16 |
+		uint32(binID[2])<<8
 
-	// We cannot work with the multihash, so use the IPFS-internal function to convert the peerID multihash.
-	// Practically this means just hashing
-	binID := kb.ConvertPeerID(targetPeer.ID)
+	// Flip the bit immediately after the common prefix.
+	target ^= uint32(0x80000000) >> cpl
+	// Make sure we occupy the lower three bytes, for indexing.
+	target = target >> 8
 
-	// Until bitPosition-1 we want to take the target's ID. The bit at bitPosition should be inverted to the ID.
-	// So we take that as well and build an approriate bitmask for this task
-	var mask uint8
-	for i := 0; uint8(i) <= bitPosition; i++ {
-		mask = mask>>1
-		mask += 0x80
-	}
-	maskedID := binID[byteNum] & mask
+	// Lookup, convert to slice
+	preimageUint := ph.preimages[target]
+	preimage := make([]byte, 8)
+	binary.BigEndian.PutUint64(preimage, preimageUint)
 
-	// Now let's flip the last bit
-	var xorMask uint8
-	xorMask = 0x80>>(bitPosition)
-	maskedID = maskedID ^ xorMask
+	log.Debugf("search for ID %08b%08b%08b, CPL=%02d, computed target %024b, returning %s", binID[0], binID[1], binID[2], cpl, target, hex.EncodeToString(preimage[:]))
 
-	// Now we have to put the pieces together into a string that we can use in our map
-	var s string
-	for j := 0; uint8(j) < byteNum; j++ {
-		s += fmt.Sprintf("%08b", binID[j])
-	}
-	s += fmt.Sprintf("%08b", maskedID)
-
-	// ToDo: Related to above: this could be generic
-	for j := 0; uint8(j) < 2 - byteNum; j++ {
-		s += "00000000"
-	}
-	// Lookup the preimage in our "database"
-	unhashed, err := hex.DecodeString(ph.PreImages[s])
-	if err != nil {
-		panic(err)
-	}
-	return unhashed
+	return preimage
 }

@@ -1,0 +1,62 @@
+name: Lint_Build_Test
+on:
+  # See the documentation for more intricate event dispatch here:
+  # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#on
+  push:
+    branches:
+    - "!dependabot/*"
+    - "*"
+  pull_request:
+    branches:
+    - "*"
+jobs:
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Setup
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.20
+    - name: Tidy
+      run: |
+        GO_MOD_OUPUT="$(go mod tidy -v 2>&1)"
+        if [[ $GO_MOD_OUPUT == *"unused"* ]]; then
+          echo "${GO_MOD_OUPUT}"
+          exit 1
+        fi
+    - name: Format
+      run: |
+        go install mvdan.cc/gofumpt@v0.3.1
+        GOFUMPT_OUTPUT="$(gofumpt -d .)"
+        if [ -n "$GOFUMPT_OUTPUT" ]; then
+          echo "${GOFUMPT_OUTPUT}"
+          exit 1
+        fi
+    - name: Lint
+      run: |
+        go install github.com/mgechev/revive@latest
+        REVIVE_OUTPUT="$(revive -config .github/workflows/revive.toml ./...)"
+        if [ -n "$REVIVE_OUTPUT" ]; then
+          echo "${REVIVE_OUTPUT}"
+          exit 1
+        fi
+    - name: Build
+      run: go build -v -o ipfs-crawler cmd/ipfs-crawler/main.go
+    - name: Build Docker image and export binaries
+      run: ./build-in-docker.sh
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Setup
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.20
+    - name: Unit Tests
+      run: go test -v -race $(go list ./...)

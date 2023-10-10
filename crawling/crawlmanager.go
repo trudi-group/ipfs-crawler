@@ -1,372 +1,485 @@
 package crawling
 
 import (
-
-	// "context"
+	"fmt"
 	"time"
 
-	peer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/prometheus/client_golang/prometheus"
-
-	// "os"
-	// "bufio"
-	// "encoding/hex"
-	// kb "github.com/libp2p/go-libp2p-kbucket"
-	// "strings"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
-
-	// "encoding/json"
-	// "io/ioutil"
-	"github.com/spf13/viper"
-	// "github.com/DataDog/zstd"
 )
 
-var	promMetricWaitingForRequests = prometheus.NewGauge(prometheus.GaugeOpts{
-	Name: "ipfs_crawler_cmanager_waiting_for_request_queue_length",
-	Help: "Current number of requests that are awaiting responses.",
-})
-
-var	promMetricNumberOfNewIDs = prometheus.NewCounterVec(prometheus.CounterOpts{
-	Name: "ipfs_crawler_cmanager_number_new_IDs",
-	Help: "Current number of newly learned node IDs.",
-},
-[]string{
-	"reachable",
-})
-
-var	promMetricTokenBucketLength = prometheus.NewGauge(prometheus.GaugeOpts{
-	Name: "ipfs_crawler_cmanager_token_bucket_free_capacity",
-	Help: "Free capacity of the token bucket used to rate limit the crawl.",
-})
-
-// Set defaults for CrawlManager
-func init() {
-	prometheus.MustRegister(promMetricWaitingForRequests)
-	prometheus.MustRegister(promMetricNumberOfNewIDs)
-	prometheus.MustRegister(promMetricTokenBucketLength)
-	
-	// TODO: sort out necessary defaults
-	viper.SetDefault("FilenameTimeFormat", "02-01-06--15:04:05")
-	viper.SetDefault("OutPath", "output_data_crawls/")
-	viper.SetDefault("WriteToFileFlag", true)
-	viper.SetDefault("CanaryFile", "configs/canary.txt")
-	viper.SetDefault("Sanity", false)
-}
-
-type CMOutputConfig struct {
-	WriteToFileFlag bool `mapstructure:"dataOutputEnabled""`
-	OutPath string `mapstructure:"outpath""`
-	FilenameTimeFormat string `mapstructure:"filenameTimeFormat""`
-}
-// Config Object for CrawlManager
-type CrawlManagerConfig struct {
-	Output CMOutputConfig `mapstructure:"dataOutput"`
-    CanaryFile string `mapstructure:"canaryfile"`
-    Sanity bool `mapstructure:"sanityEnabled"`
-}
-
-func configureCrawlerManager() CrawlManagerConfig {
-    var config CrawlManagerConfig
-
-    err := viper.UnmarshalKey("crawloptions", &config)
-    if err != nil {
-    	panic(err)
-	}
-	return config
-}
-
-//Interface for a crawlWorker
-type CrawlerWorker interface {
-	Capacity() int
-	CrawlPeer(*peer.AddrInfo) (*NodeKnows, error)
-}
-
+// CrawlOutput is the output of a crawl.
 type CrawlOutput struct {
-	StartDate string
-	EndDate string
-	Nodes map[peer.ID]*CrawledNode
+	nodes    map[peer.ID]nodeCrawlStatus
+	addrInfo map[peer.ID][]ma.Multiaddr
 }
 
-type CrawledNode struct {
-	NID peer.ID
-	MultiAddrs[] ma.Multiaddr
-	Reachable bool
+// CrawlManagerConfig contains configuration for the crawl manager.
+type CrawlManagerConfig struct {
+	// Path to the preimage file.
+	PreimageFilePath string `yaml:"preimage_file_path"`
+
+	NumWorkers         uint           `yaml:"num_workers"`
+	BootstrapPeers     []string       `yaml:"bootstrap_peers"`
+	ConcurrentRequests uint           `yaml:"concurrent_requests"`
+	WorkerConfig       WorkerConfig   `yaml:"worker_config"`
+	Plugins            []PluginConfig `yaml:"plugins"`
+	CrawlerConfig      CrawlerConfig  `yaml:"crawler_config"`
+}
+
+func (c *CrawlManagerConfig) check() error {
+	if len(c.PreimageFilePath) == 0 {
+		return fmt.Errorf("missing preimage file path")
+	}
+	if c.NumWorkers == 0 {
+		return fmt.Errorf("missing or invalid num_workers")
+	}
+	if len(c.BootstrapPeers) == 0 {
+		return fmt.Errorf("missing bootstrap peers")
+	}
+	if c.ConcurrentRequests == 0 {
+		return fmt.Errorf("missing or invalid concurrent_requests")
+	}
+	return nil
+}
+
+// toCrawlQueue keeps track of which peers we need to crawl and what addresses
+// they have.
+// It also knows if we should potentially re-crawl a peer because of address
+// changes since the last time we crawled.
+type toCrawlQueue struct {
+	queue    []peer.ID
+	inQueue  map[peer.ID]struct{}
+	addrInfo map[peer.ID][]ma.Multiaddr
+}
+
+// numPeers returns the number of peers we know about.
+func (q *toCrawlQueue) numPeers() int {
+	return len(q.addrInfo)
+}
+
+// len returns the length of the queue.
+func (q *toCrawlQueue) len() int {
+	return len(q.inQueue)
+}
+
+// pop removes the next item from the queue.
+// panics if the queue is empty.
+func (q *toCrawlQueue) pop() peer.AddrInfo {
+	if q.len() == 0 {
+		panic("empty queue")
+	}
+
+	var id peer.ID
+	id, q.queue = q.queue[0], q.queue[1:]
+	addr := q.addrInfo[id]
+	delete(q.inQueue, id)
+
+	return peer.AddrInfo{
+		ID:    id,
+		Addrs: addr,
+	}
+}
+
+// push adds the peer's addresses to the cache and, if necessary, to the crawl
+// queue.
+func (q *toCrawlQueue) push(p peer.AddrInfo, force bool) {
+	if force {
+		// Just add it
+		q.queue = append(q.queue, p.ID)
+		q.inQueue[p.ID] = struct{}{}
+		newAddrs := filterOutOldAddresses(q.addrInfo[p.ID], stripLocalAddrs(p.Addrs))
+		q.addrInfo[p.ID] = append(q.addrInfo[p.ID], newAddrs...)
+		return
+	}
+
+	oldAddrs, ok := q.addrInfo[p.ID]
+	if !ok {
+		// Not known at all, just add
+		q.queue = append(q.queue, p.ID)
+		q.inQueue[p.ID] = struct{}{}
+		q.addrInfo[p.ID] = p.Addrs
+		return
+	}
+
+	// Already in the queue or previously crawled, but maybe new addresses
+	newAddrs := filterOutOldAddresses(oldAddrs, stripLocalAddrs(p.Addrs))
+	if len(newAddrs) == 0 {
+		// No new addresses, nothing to do
+		return
+	}
+
+	// Add new addresses
+	q.addrInfo[p.ID] = append(q.addrInfo[p.ID], newAddrs...)
+
+	// If not in queue, re-add (with new addresses)
+	if _, ok := q.inQueue[p.ID]; !ok {
+		q.inQueue[p.ID] = struct{}{}
+		q.queue = append(q.queue, p.ID)
+	}
+}
+
+// A worker is a libp2p host which is used to crawl the network.
+// It should support concurrent crawls.
+// It should also execute any plugins on connectable nodes.
+type worker interface {
+	// crawlPeer crawls the given peer.
+	crawlPeer(peer.AddrInfo) (*rawNodeInformation, error)
+
+	// stop shuts down the worker cleanly.
+	stop() error
+}
+
+// nodeCrawlResult is the result of probing a peer.
+// The fields err and node are mutually exclusive.
+type nodeCrawlResult struct {
+	id      peer.ID
+	startTs time.Time
+	endTs   time.Time
+	err     error
+	node    *rawNodeInformation
+}
+
+// rawNodeInformation stores all information from probing a peer
+type rawNodeInformation struct {
+	info          peerMetadata
+	crawlData     crawlResult
+	pluginResults map[string]pluginResult
+}
+
+// crawlResult encapsulates the result of trying to crawl a peer.
+// The fields err and result are mutually exclusive.
+type crawlResult struct {
+	beginTimestamp time.Time
+	endTimestamp   time.Time
+	err            error
+	result         *crawlData
+}
+
+// crawlData contains the data obtained through crawling a peer, notably its
+// neighborhood.
+type crawlData struct {
+	neighbors              []peer.AddrInfo
+	crawlStartedTimestamp  time.Time
+	crawlFinishedTimestamp time.Time
+}
+
+// pluginResult encapsulates the result of calling a plugin on a peer.
+// The fields err and result are mutually exclusive.
+type pluginResult struct {
+	beginTimestamp time.Time
+	endTimestamp   time.Time
+	err            error
+	result         interface{}
+}
+
+// nodeCrawlStatus is our knowledge of a peer, after trying to probe it at least
+// once.
+// The fields err and result are mutually exclusive.
+type nodeCrawlStatus struct {
+	startTs time.Time
+	endTs   time.Time
+	err     error
+	result  *nodeInformation
+}
+
+// nodeInformation holds any information we know about a node.
+// Most notably, this does not store addresses of DHT neighbors, because they
+// are potentially big.
+// The fields crawlDataError and crawlNeighbors are mutually
+// exclusive.
+type nodeInformation struct {
+	info          peerMetadata
+	pluginResults map[string]pluginResult
+
+	crawlDataError   error
+	crawlDataBeginTs time.Time
+	crawlDataEndTs   time.Time
+	crawlNeighbors   []peer.ID
+}
+
+type peerMetadata struct {
 	AgentVersion string
-	Neighbours[] peer.ID
-	Timestamp string
+
+	SupportedProtocols []protocol.ID
 }
 
+// A CrawlManager manages crawling the network.
+// It contains multiple workers, with a libp2p node each, which are used to
+// execute requests concurrently.
+type CrawlManager struct {
+	resultChan  chan nodeCrawlResult
+	tokenBucket chan int
+	workers     []worker
 
-// Container struct for crawl results... because of go...
-type CrawlResult struct {
-	Node *NodeKnows
-	Err  error
+	crawlsInProgress map[peer.ID]struct{}
+	crawled          map[peer.ID]nodeCrawlStatus
+	toCrawl          *toCrawlQueue
 }
 
-type CrawlManagerV2 struct {
-	// cacheFile string
-	// useCache bool
-	queueSize int
-	// InputQueue chan peer.AddrInfo
-	// onlineQueue chan peer.AddrInfo
-	// workQueue chan peer.AddrInfo
-	ReportQueue        chan CrawlResult
-	toCrawl            []*peer.AddrInfo
-	tokenBucket        chan int
-	concurrentRequests int
-	// We use this map not only to store whether we crawled a node but also to store a nodes multiaddress
-	crawled map[peer.ID][]ma.Multiaddr
-	knows   map[peer.ID][]peer.ID
-	online  map[peer.ID]bool
-	info		map[peer.ID]map[string]interface{}
-	quitMsg chan bool
-	Done    chan bool
-	workers []*CrawlerWorker
-	// ctx context.Context
-	startTime time.Time
-	// errorChan chan error
-	// errorMap map[string]int
-	config CrawlManagerConfig
-}
-
-func NewCrawlManagerV2(queueSize int) *CrawlManagerV2 {
-	// concurrentRequests := 4096*2 // TODO: move to config
-	cm := &CrawlManagerV2{
-		ReportQueue:        make(chan CrawlResult, queueSize),
-		// concurrentRequests: concurrentRequests,
-		tokenBucket:        make(chan int, queueSize),
-		crawled:            make(map[peer.ID][]ma.Multiaddr),
-		online:             make(map[peer.ID]bool),
-		knows:              make(map[peer.ID][]peer.ID),
-		info: 							make(map[peer.ID]map[string]interface{}),
-		quitMsg:            make(chan bool),
-		Done:               make(chan bool),
-		startTime:          time.Now(),
+// NewCrawlManager creates a new CrawlManager.
+// This attempts to create the specified number of workers and plugins, which
+// may fail.
+func NewCrawlManager(config CrawlManagerConfig) (*CrawlManager, error) {
+	err := config.check()
+	if err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
-	// for i := 1; i <= concurrentRequests; i++ {
-	// 	cm.tokenBucket <- true
-	// }
-	config := configureCrawlerManager()
-	cm.config = config
-	return cm
+
+	// Load preimageHandler
+	preimageHandler, err := LoadPreimages(config.PreimageFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load preimages: %w", err)
+	}
+	log.WithField("path", config.PreimageFilePath).WithField("num", len(preimageHandler.preimages)).Info("loaded preimages")
+
+	cm := &CrawlManager{
+		resultChan:       make(chan nodeCrawlResult),
+		tokenBucket:      make(chan int, config.NumWorkers*config.ConcurrentRequests),
+		crawled:          make(map[peer.ID]nodeCrawlStatus),
+		crawlsInProgress: make(map[peer.ID]struct{}),
+		toCrawl: &toCrawlQueue{
+			queue:    nil,
+			addrInfo: make(map[peer.ID][]ma.Multiaddr),
+			inQueue:  make(map[peer.ID]struct{}),
+		},
+	}
+
+	// Create workers
+	for i := uint(0); i < config.NumWorkers; i++ {
+		worker, err := NewLibp2pWorker(config.WorkerConfig, config.Plugins, preimageHandler, config.CrawlerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create worker: %w", err)
+		}
+		cm.workers = append(cm.workers, worker)
+	}
+
+	// Create concurrent work tokens, round-robin assign the workers by ID
+	for i := uint(0); i < config.ConcurrentRequests; i++ {
+		cm.tokenBucket <- int(i % config.NumWorkers)
+	}
+
+	// Parse and add bootstrap peers to queue
+	for _, maddr := range config.BootstrapPeers {
+		pinfo, err := parsePeerString(maddr)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse bootstrap peer address: %w", err)
+		}
+		cm.toCrawl.push(*pinfo, false)
+	}
+
+	return cm, nil
 }
 
-func (cm *CrawlManagerV2) AddWorker(w CrawlerWorker) {
-	cm.workers = append(cm.workers, &w)
-	// get sum and maximum capacity of workers
-	// recreate the tokenBucket
-	// add tokens round-robin style
-	sumCap := 0
-	maxCap := 0
+// AddPeersToCrawl adds peers to the end of the queue.
+// This must be called before CrawlNetwork.
+func (cm *CrawlManager) AddPeersToCrawl(peers []peer.AddrInfo) {
+	for _, p := range peers {
+		cm.toCrawl.push(p, false)
+	}
+}
+
+// Stop shuts down all workers cleanly.
+func (cm *CrawlManager) Stop() error {
 	for _, worker := range cm.workers {
-		if (*worker).Capacity() > maxCap {
-			maxCap = (*worker).Capacity()
-		}
-		sumCap += (*worker).Capacity()
-	}
-	log.WithFields(log.Fields{
-		"sumCap":           sumCap,
-		"maxCap":						maxCap,
-		"capacity":					w.Capacity(),
-	}).Debug("Size of Queue")
-	cm.tokenBucket = make(chan int, sumCap)
-	cm.ReportQueue = make(chan CrawlResult, sumCap)
-	cm.queueSize = sumCap
-	for iter := 0; iter < maxCap; iter++ {
-		for id, worker := range cm.workers {
-			if (*worker).Capacity() >= iter{
-				cm.tokenBucket <- id
-			}
+		err := worker.stop()
+		if err != nil {
+			log.WithError(err).Warn("unable to stop worker")
 		}
 	}
-	log.WithFields(log.Fields{
-		"QueueSize":           len(cm.tokenBucket),
-	}).Debug("Size of Queue")
+
+	return nil
 }
 
-func (cm *CrawlManagerV2) CrawlNetwork(bootstraps []*peer.AddrInfo) *CrawlOutput {
-	//Plan of action
-	//1. Add bootstraps to overflow
-	//2. Start dispatch loop
-	//  2.1 get new nodes from ReportQueue and check if we need to crawl them, if yes: add to toCrawl
+// CrawlNetwork crawls the network, starting at the configured bootstrap nodes.
+// If any peers were added with AddPeersToCrawl, those will be asked, too.
+// Apart from that, all nodes learned during the crawl will be contacted.
+// Nodes are contacted only once, unless a previous connection attempt failed
+// and new addresses have been learned since.
+func (cm *CrawlManager) CrawlNetwork() CrawlOutput {
+	// Plan of action
+	// 1. Add bootstraps to overflow
+	// 2. Start dispatch loop
+	//  2.1 get new nodes from resultChan and check if we need to crawl them, if yes: add to toCrawl
 	//  2.2 if we can dispatch a crawl: dispatch from toCrawl
 	//  2.3 break loop: idleTimer fired | (toCrawl empty && no request are out && knowQueue empty)
-	//  return data TODO: what kind of format
+	//  return data
 	log.Info("Starting crawl...")
-	if len(cm.workers) < 1 {
-		log.Error("We cannot start a crawl without workers")
-		return nil
-	}
 
-	log.Debug("Adding bootstraps")
-	cm.toCrawl = append(cm.toCrawl, bootstraps...)
-	// idleTimer := time.NewTimer(1 * time.Minute)
-	log.Trace("Going into loop")
+	infoTicker := time.NewTicker(20 * time.Second)
+	defer infoTicker.Stop()
 
-	ticker := time.NewTicker(20*time.Second)
-	defer ticker.Stop()
-	prometheusTicker := time.NewTicker(time.Second)
-	defer prometheusTicker.Stop()
-    idleTimer := time.NewTimer(1 * time.Minute)
-    defer idleTimer.Stop()
-	for {
-		// check if we can break the loop
-		if len(cm.tokenBucket) == cm.queueSize &&
-			len(cm.toCrawl) == 0 &&
-			len(cm.ReportQueue) == 0 {
-			log.Info("Stopping crawl...")
-			break
-		}
-        // idleTimer := time.NewTimer(1 * time.Minute)
-        idleTimer.Reset(1 * time.Minute)
+	for cm.toCrawl.len() != 0 ||
+		len(cm.crawlsInProgress) != 0 {
+
 		select {
-		case report := <-cm.ReportQueue:
-			// We have new information incomming
-			node := report.Node
-			err := report.Err
-			// First, stop the idle timer. The following code is from the docs, apparently there are race conditions
-			// with Stop() and the timer channel we're reading from.
-			if !idleTimer.Stop() {
-				<-idleTimer.C
+		case report := <-cm.resultChan:
+			// We have new information incoming
+			if _, ok := cm.crawlsInProgress[report.id]; !ok {
+				panic("received result for untracked crawl")
 			}
-			if err != nil {
-				log.WithFields(log.Fields{"Error": err}).Debug("Error while crawling")
-				// TODO: Error handling
+			delete(cm.crawlsInProgress, report.id)
+
+			// Insert into our "database"
+			cm.upsertCrawlResult(report)
+
+			if report.err != nil {
+				log.WithFields(log.Fields{"Error": report.err}).Debug("Error while crawling")
 				continue
-			} else {
-				cm.online[node.id] = true
-				cm.knows[node.id] = AddrInfoToID(node.knows)
-				cm.info[node.id] = node.info // TODO: make the map merge together not overwrite each other
-				// Notify prometheus about a new online node
-				promMetricNumberOfNewIDs.WithLabelValues("reachable").Inc()
-				for _, p := range node.knows {
-					cm.handleInputNodes(p)
-				}
-            log.WithFields(log.Fields{
-                "Current Request": cm.queueSize - len(cm.tokenBucket),
-                "toCrawl":           len(cm.toCrawl),
-                "Reports":           len(cm.ReportQueue),
-            }).Debug("Status of Manager")
 			}
-		// case token := <-cm.tokenBucket :
-		case id := <- cm.tokenBucket:
-			// We can start a crawl, so let's do that
-			if len(cm.toCrawl) > 0 {
-				var node *peer.AddrInfo
-				node, cm.toCrawl = cm.toCrawl[0], cm.toCrawl[1:]
-				log.WithFields(log.Fields{"node": node.ID}).Debug("Dispatch crawler request")
-				go cm.dispatch(node, id)
+
+			// Add new peers to queue
+			if report.node.crawlData.result != nil {
+				for _, addrInfo := range report.node.crawlData.result.neighbors {
+					cm.handleNewNode(addrInfo)
+				}
+			}
+
+			log.WithFields(log.Fields{
+				"Current Request": len(cm.crawlsInProgress),
+				"toCrawl":         cm.toCrawl.len(),
+				"Reports":         len(cm.resultChan),
+			}).Debug("Status of Manager")
+
+		case id := <-cm.tokenBucket:
+			// We have an available worker
+			if cm.toCrawl.len() > 0 {
+				node := cm.toCrawl.pop()
+
+				// Check if we're already crawling that node
+				if _, ok := cm.crawlsInProgress[node.ID]; ok {
+					log.WithFields(log.Fields{"node": node.ID}).Debug("already being crawled, not dispatching crawl request")
+
+					// Return to queue, maybe the crawl fails
+					cm.toCrawl.push(node, true)
+					cm.tokenBucket <- id
+				} else {
+					// Check if we crawled the node already
+					if state, ok := cm.crawled[node.ID]; !ok || (ok && state.err != nil) || (ok && state.err == nil && state.result.crawlDataError != nil) {
+						log.WithFields(log.Fields{"node": node.ID}).Debug("dispatching crawl request")
+						cm.crawlsInProgress[node.ID] = struct{}{}
+						go cm.dispatch(node, id)
+					} else {
+						log.WithFields(log.Fields{"node": node.ID}).Debug("already crawled, not dispatching crawl request")
+						cm.tokenBucket <- id
+					}
+				}
 			} else {
 				// nothing to do; return token
 				cm.tokenBucket <- id
+				// Sleep a bit, because we're probably at the end of the crawl and not much is happening.
+				time.Sleep(10 * time.Millisecond)
 			}
-		case <-ticker.C:
+
+		case <-infoTicker.C:
+			numConnectable := 0
+			numCrawlable := 0
+			for _, status := range cm.crawled {
+				if status.err == nil {
+					numConnectable++
+					if status.result.crawlDataError == nil {
+						numCrawlable++
+					}
+				}
+			}
 			log.WithFields(log.Fields{
-				"Found nodes":			len(cm.crawled),
-				"Waiting for requests":	cm.queueSize - len(cm.tokenBucket),
-				"To-crawl-queue":		len(cm.toCrawl),
-				"Connectable nodes":	len(cm.online),}).Info("Periodic info on crawl status")
-
-			case <-prometheusTicker.C:
-				// Prometheus stats
-				promMetricWaitingForRequests.Set(float64(cm.queueSize - len(cm.tokenBucket)))
-				promMetricTokenBucketLength.Set(float64(len(cm.tokenBucket)))
-
-		case <-idleTimer.C:
-			// log.Debug("###TIMER###")
-			// Stop the crawl
-			log.Debug("Idle timer fired, stopping the crawl.")
-			break
-		// default:
+				"discovered nodes":            cm.toCrawl.numPeers(),
+				"available workers":           len(cm.tokenBucket),
+				"requests in flight":          len(cm.crawlsInProgress),
+				"to-crawl-queue":              cm.toCrawl.len(),
+				"connectable nodes":           numConnectable,
+				"connectable+crawlable nodes": numCrawlable,
+			}).Info("Periodic info on crawl status")
 		}
-
 	}
+
 	return cm.createReport()
 }
 
-func (cm *CrawlManagerV2) dispatch(node *peer.AddrInfo, id int) {
-	worker := *cm.workers[id]
-	result, err := worker.CrawlPeer(node) //FIXME: worker selection
-	if err != nil {
-		//TODO: failed connection callback
-	} else {
-		// TODO: successful conncetion callback
+func (cm *CrawlManager) upsertCrawlResult(report nodeCrawlResult) {
+	// TODO maybe modify existing entry with new information?
+	ncs := nodeCrawlStatus{
+		result:  nil,
+		startTs: report.startTs,
+		endTs:   report.endTs,
+		err:     report.err,
 	}
-	cm.ReportQueue <- CrawlResult{Node: result, Err: err}
+	if report.node != nil {
+		ncs.result = new(nodeInformation)
+		ncs.result.pluginResults = report.node.pluginResults
+		ncs.result.info = report.node.info
+		ncs.result.crawlDataError = report.node.crawlData.err
+		ncs.result.crawlDataBeginTs = report.node.crawlData.beginTimestamp
+		ncs.result.crawlDataEndTs = report.node.crawlData.endTimestamp
+		if report.node.crawlData.result != nil {
+			for _, p := range report.node.crawlData.result.neighbors {
+				ncs.result.crawlNeighbors = append(ncs.result.crawlNeighbors, p.ID)
+			}
+		}
+	}
+	cm.crawled[report.id] = ncs
+}
+
+func (cm *CrawlManager) dispatch(node peer.AddrInfo, id int) {
+	worker := cm.workers[id]
+	before := time.Now()
+	result, err := worker.crawlPeer(node)
+	after := time.Now()
+	if err != nil {
+		log.WithError(err).WithField("peer", node).Debug("unable to crawl node")
+	} else {
+		log.WithField("Result", result).Debug("crawled node")
+	}
+
+	cm.resultChan <- nodeCrawlResult{
+		id:      node.ID,
+		node:    result,
+		startTs: before,
+		endTs:   after,
+		err:     err,
+	}
 	cm.tokenBucket <- id
 }
 
-func (cm *CrawlManagerV2) handleInputNodes(node *peer.AddrInfo) {
-	oldAddrs, crawled := cm.crawled[node.ID]
-	_, online := cm.online[node.ID]
-	if crawled && online {
-		return
-	}
-	if crawled && !online {
-		// Check if there are any new addresses. If so, connect to them
-		newAddrs := FindNewMA(oldAddrs, stripLocalAddrs(*node).Addrs)
-		if len(newAddrs) == 0 {
-			// Nothing new, don't bother dialing again
+func (cm *CrawlManager) handleNewNode(node peer.AddrInfo) {
+	state, ok := cm.crawled[node.ID]
+	if ok {
+		if state.err == nil && state.result.crawlDataError == nil {
+			// We've crawled the node successfully before, no need to try again.
 			return
 		}
-		log.WithFields(log.Fields{"node": node.ID}).Debug("Adding new Addresses to crawled")
-		cm.crawled[node.ID] = append(cm.crawled[node.ID], newAddrs...)
-		workload := peer.AddrInfo{
-			ID:    node.ID,
-			Addrs: newAddrs,
-		}
-		log.WithFields(log.Fields{"node": node.ID}).Debug("Try new addresses")
-		cm.toCrawl = append(cm.toCrawl, &workload)
-		return
 	}
-	// If not, we remember that we've seen it and add it to the work queue, so that a worker will eventually crawl it.
-	// Notify prometheus about newly learned peer
-	promMetricNumberOfNewIDs.WithLabelValues("all").Inc()
-	cm.crawled[node.ID] = node.Addrs
-	log.WithFields(log.Fields{"node": node.ID}).Debug("Adding newer seen node")
-	cm.toCrawl = append(cm.toCrawl, node)
+
+	// We've either not crawled the node or failed before.
+	// The queue will decide whether we have new addresses and should retry.
+	cm.toCrawl.push(node, false)
 }
 
-func (cm *CrawlManagerV2) createReport() *CrawlOutput {
-	// Output a crawl report into the log
+func (cm *CrawlManager) createReport() CrawlOutput {
+	numNodes := 0
+	numConnectable := 0
+	numCrawlable := 0
+
+	for _, state := range cm.crawled {
+		numNodes++
+		if state.err == nil {
+			numConnectable++
+			if state.result.crawlDataError == nil {
+				numCrawlable++
+			}
+		}
+	}
+
 	log.WithFields(log.Fields{
-		"start time":			cm.startTime.Format(cm.config.Output.FilenameTimeFormat),
-		"end time:":			time.Now().Format(cm.config.Output.FilenameTimeFormat),
-		"number of nodes": 		len(cm.crawled),
-		"connectable nodes": 	len(cm.online),
+		"number of nodes":   numNodes,
+		"connectable nodes": numConnectable,
+		"crawlable nodes":   numCrawlable,
 	}).Info("Crawl finished. Summary of results.")
 
-	out :=  CrawlOutput{StartDate:cm.startTime.Format(cm.config.Output.FilenameTimeFormat), EndDate:time.Now().Format(cm.config.Output.FilenameTimeFormat), Nodes: map[peer.ID]*CrawledNode{}}
-	for node, Addresses := range cm.crawled {
-		var status CrawledNode
-		status.NID = node
-		status.MultiAddrs = Addresses
-		if online, found := cm.online[node]; found {
-			status.Reachable = online
-		} else {
-			status.Reachable = false // Default value if not found
-		}
-		if neighbours, found := cm.knows[node]; found {
-			status.Neighbours = neighbours
-		} else {
-			status.Neighbours = []peer.ID{}
-		}
-		if cm.info[node]["version"] != nil {
-			status.AgentVersion = cm.info[node]["version"].(string)
-		} else {
-			status.AgentVersion = ""
-		}
-		if cm.info[node]["knows_timestamp"] != nil {
-			// log.Debug("Setting time")
-			status.Timestamp = cm.info[node]["knows_timestamp"].(string)
-		} else {
-			status.Timestamp = ""
-		}
-
-
-
-		out.Nodes[node] = &status
+	return CrawlOutput{
+		nodes:    cm.crawled,
+		addrInfo: cm.toCrawl.addrInfo,
 	}
-	return &out
 }
