@@ -19,7 +19,7 @@ jobs:
     - name: Setup
       uses: actions/setup-go@v3
       with:
-        go-version: 1.20
+        go-version: "1.20"
     - name: Tidy
       run: |
         GO_MOD_OUPUT="$(go mod tidy -v 2>&1)"
@@ -57,6 +57,6 @@ jobs:
     - name: Setup
       uses: actions/setup-go@v3
       with:
-        go-version: 1.20
+        go-version: "1.20"
     - name: Unit Tests
       run: go test -v -race $(go list ./...)
