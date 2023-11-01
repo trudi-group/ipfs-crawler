@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/DataDog/zstd v1.5.5
 	github.com/ipfs/go-bitswap v0.11.0
-	github.com/ipfs/go-cid v0.4.0
+	github.com/ipfs/go-cid v0.4.1
 	github.com/libp2p/go-libp2p v0.26.3
 	github.com/libp2p/go-libp2p-kad-dht v0.22.0
 	github.com/libp2p/go-libp2p-kbucket v0.5.0
