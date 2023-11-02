@@ -1,4 +1,6 @@
-# A Crawler for the Kademlia-part of the IPFS-network
+# Libp2p-Crawler
+
+A crawler for the Kademlia-part of various libp2p networks.
 
 **For more details, see [our paper](https://arxiv.org/abs/2002.07747).**
 
@@ -13,6 +15,74 @@ Sebastian A. Henningsen, Sebastian Rust, Martin Florian, Björn Scheuermann:
 [[BibTex]](https://dblp.uni-trier.de/rec/conf/networking/HenningsenRF020.html?view=bibtex)
 
 For a Live Version of the crawler results, check out our [Periodic Measurements of the IPFS Network](https://trudi.weizenbaum-institut.de/ipfs_analysis.html)
+
+## Building
+
+You can build this in a containerized environment.
+This will build on Debian Bullseye and extract the compiled binary to `out/`:
+```bash
+./build-in-docker.sh
+```
+
+This is the preferred way of compilation.
+You can also manually compile the crawler.
+This will need an older version of Go installed, since the most recent version is usually not supported by the QUIC implementation.
+
+## Usage
+
+To crawl the network once, execute the crawler with the corresponding config file:
+```bash
+export LIBP2P_ALLOW_WEAK_RSA_KEYS="" && export LIBP2P_SWARM_FD_LIMIT="10000" && ./out/libp2p-crawler --config dist/config_ipfs.yaml
+```
+
+One crawl will take 5-10 minutes, depending on your machine.
+
+### Docker
+
+The image executes `dist/docker_entrypoint.sh` by default, which will set the environment variables and launch the crawler with all arguments provided to it.
+This loads a config file located at `/libp2p-crawler/config.yaml` in the image.
+You can thus override the executed config by mounting a different file to this location.
+
+You'll need to mount the precomputed hashes as well as an output directory.
+The working directory of the container is `/libp2p-crawler`.
+A typical invocation could look like this:
+
+```bash
+docker run -it --rm \
+  -v ./dist/config_ipfs.yaml:/libp2p-crawler/config.yaml \
+  -v ./precomputed_hashes:/libp2p-crawler/precomputed_hashes \
+  -v ./output_data_crawls:/libp2p-crawler/output_data_crawls \
+  trudi-group/ipfs-crawler:latest
+```
+
+The crawler runs as `root` within the container and, thus, also writes files as `uid` `0`.
+This is somewhat annoying on the host, since files in the mapped output directory will also be owned by `root`.
+
+### Computing Preimages
+
+**Important note:** We ship the pre-images necessary for a successful crawl, but you can compute them yourself with `make preimages`.
+Note that the preimages only have to be computed *once*, it'll take some minutes, to compute them, though.
+
+```bash
+go build cmd/hash-precomputation/main.go
+mv main cmd/hash-precomputation/hash-precomputation
+./cmd/hash-precomputation/hash-precomputation
+mkdir -p precomputed_hashes
+mv preimages.csv precomputed_hashes/preimages.csv
+```
+
+## Configuration
+
+The crawler is configured via a YAML configuration file.
+Example configurations with sane defaults are provided in [dist/](dist):
+- [dist/config_ipfs.yaml](dist/config_ipfs.yaml) contains a configuration to crawl the IPFS network.
+- [dist/config_filecoin_mainnet.yaml](dist/config_filecoin_mainnet.yaml) contains a configuration to crawl the Filecoin mainnet.
+
+### Bootstrap Peers
+
+The crawler needs to know which peers to use to start a crawl.
+These are configured via the configuration file.
+To get the default bootstrap peers of an IPFS node, simply run ```./ipfs bootstrap list > bootstrappeers.txt```.
 
 ## In a Nutshell
 
@@ -34,44 +104,6 @@ It starts from the (configurable) bootstrap nodes, polls their buckets and conti
 For an in-depth dive and discussion to the crawler and the obtained results, you can watch @scriptkitty's talk at ProtocolLabs:
 
 [![Link to YouTube](https://img.youtube.com/vi/jQI37Y25jwk/1.jpg)](https://www.youtube.com/watch?v=jQI37Y25jwk)
-
-## Building
-
-You can build this in a containerized environment.
-This will build on Debian Bullseye and extract the compiled binary to `out/`:
-```bash
-./build-in-docker.sh
-```
-
-## Run one or multiple crawls
-
-To run a single crawl simply do:
-
-```bash
-make build
-./start_crawl.sh
-```
-
-**Important note:** We ship the pre-images necessary for a successful crawl, but you can compute them yourself with `make preimages`.
-Note that the preimages only have to be computed *once*, it'll take some minutes, to compute them, though.
-
-One crawl will take 5-10 minutes, depending on your machine.
-
-For multiple crawls, use the `autocrawl.sh` script instead of `start_crawl.sh` in the last line. It takes a duration in days and an optional directory to put logs into.
-Note that there will be a lot of output on your disk, one week of crawling (without logs) can lead to 30-50GB of data!
-The complete workflow is:
-
-```bash
-make build
-./autocrawl [-l logdir] <crawl duration in days>
-```
-
-## Configuration
-
-The crawler is configured via a YAML configuration file.
-Example configurations with sane defaults are provided in [dist/](dist):
-- [dist/config_ipfs.yaml](dist/config_ipfs.yaml) contains a configuration to crawl the IPFS network.
-- [dist/config_filecoin_mainnet.yaml](dist/config_filecoin_mainnet.yaml) contains a configuration to crawl the Filecoin mainnet.
 
 ## Evaluation of Results
 
@@ -98,12 +130,6 @@ If configured, the crawler will cache the nodes it has seen.
 The next crawl will then not only start at the boot nodes but also add all previously reachable nodes to the crawl queue.
 This can increase the crawl speed, and therefore the accuracy of the snapshots, significantly.
 Due to node churn, this setting is most reasonable when performing many consecutive crawls.
-
-### Sanity Check ("Canary Peers")
-
-The crawler enumerates the nodes in the network, but without ground truth it is hard to assess the quality and completeness of a crawl.
-Therefore, it might be desirable to check whether some known IPFS-nodes appear in the crawl.
-This functionality used to exist in the crawler, but we believe it is more convenient to check externally using common UNIX tools.
 
 ## Output of a crawl
 
@@ -207,12 +233,6 @@ which says that the peer with ID `12D3KooWD9QV2...` had an entry for peer `12D3K
 If `target_crawlable` is `false`, this indicates that the crawler was not able to connect to or enumerate all of `target`'s peers.
 Since some nodes reside behind NATs or are otherwise uncooperative, this is not uncommon to see.
 
-## Bootstrap Peers
-
-The crawler needs to know which peers to use to start a crawl.
-These are configured via the configuration file.
-To get the default bootstrap peers of an IPFS node, simply run ```./ipfs bootstrap list > bootstrappeers.txt```.
-
 ## Libp2p complains about key lengths
 
 Libp2p uses a minimum keylenght of [2048 bit](https://github.com/libp2p/go-libp2p-core/blob/master/crypto/rsa_common.go), whereas IPFS uses [512 bit](https://github.com/ipfs/infra/issues/378).
@@ -231,4 +251,8 @@ Please raise the maximum number of sockets on linux via
 ```bash
 ulimit -n unlimited
 ```
-or equivalent commands on different platforms
+or equivalent commands on different platforms.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
