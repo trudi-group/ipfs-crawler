@@ -34,9 +34,9 @@ func main() {
 	var configFilePath string
 	var help bool
 
-	flag.BoolVar(&debug, "debug", false, "whether to enable debug logging")
+	flag.BoolVar(&debug, "debug", false, "enable debug logging")
 	flag.StringVar(&configFilePath, "config", "dist/config_ipfs.yaml", "path to the configuration file")
-	flag.BoolVar(&help, "help", false, "Print usage.")
+	flag.BoolVar(&help, "help", false, "print usage")
 	flag.Parse()
 
 	if help {
