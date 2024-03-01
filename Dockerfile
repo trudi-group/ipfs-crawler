@@ -1,4 +1,4 @@
-FROM golang:1.20-bullseye AS builder
+FROM golang:1.22-bullseye AS builder
 
 WORKDIR /usr/src/ipfs-crawler/
 # Download all dependencies first, this should be cached.
