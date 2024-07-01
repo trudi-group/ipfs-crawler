@@ -11,7 +11,7 @@ require (
 	github.com/libp2p/go-libp2p-kbucket v0.5.0
 	github.com/libp2p/go-msgio v0.3.0
 	github.com/minio/sha256-simd v1.0.1
-	github.com/multiformats/go-multiaddr v0.12.3
+	github.com/multiformats/go-multiaddr v0.13.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5
 	gopkg.in/yaml.v3 v3.0.1
