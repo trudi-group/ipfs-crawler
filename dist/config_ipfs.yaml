@@ -30,7 +30,7 @@ crawler:
   # Configuration of the libp2p hosts.
   worker_config:
     # The user agent to announce as.
-    user_agent: "ipfs_crawler (https://github.com/trudi-group/ipfs-crawler)"
+    user_agent: "libp2p_crawler (https://github.com/trudi-group/ipfs-crawler)"
 
     # The timeout to establish a connection to a peer.
     connect_timeout: 180s
@@ -58,7 +58,7 @@ crawler:
   # given here.
   plugins:
 
-    # Configuration for the Bitswap probe plugin
+  # Configuration for the Bitswap probe plugin
 #    - name: "bitswap-probe"
 #      options:
 #        # A list of CIDs to ask for
