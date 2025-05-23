@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-msgio"
 	"github.com/libp2p/go-msgio/protoio"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 )
 
 // CrawlerConfig contains the configuration for the crawler.
@@ -230,7 +231,7 @@ func sendFindNode(ctx context.Context, recvReader msgio.Reader, target []byte, s
 		}
 
 		// Parse the request and then signal that the msgbytes-buffer can be used again
-		err = response.Unmarshal(msg)
+		err = proto.Unmarshal(msg, &response)
 		if err != nil {
 			log.WithError(err).Warn("unable to unmarshal FIND_NODE response")
 			return nil, err
