@@ -30,10 +30,10 @@ func parsePeerString(text string) (*peer.AddrInfo, error) {
 
 // filterOutOldAddresses filters the addresses given in new with the addresses
 // old, returning new addresses.
-func filterOutOldAddresses(old []ma.Multiaddr, new []ma.Multiaddr) []ma.Multiaddr {
+func filterOutOldAddresses(old []ma.Multiaddr, newMa []ma.Multiaddr) []ma.Multiaddr {
 	var newAddrs []ma.Multiaddr
 	var found bool
-	for _, newaddr := range new {
+	for _, newaddr := range newMa {
 		found = false
 		for _, oldaddr := range old {
 			if newaddr.Equal(oldaddr) {
