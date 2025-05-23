@@ -1,0 +1,109 @@
+# Path to a directory to where peer metadata and the overlay graph will be written.
+output_directory_path: "output_data_crawls/polkadot/canary"
+
+# Path to a file to use as a node cache.
+# The node cache is read at startup. All peers in the node cache will be
+# contacted by the crawler. This should speed up the crawl, but only works if
+# the cache is up-to-date. Due to churn, this is generally only the case for
+# crawls that are performed immediately after one another.
+#cache_file_path: nodes.cache
+
+# Settings for the crawler
+crawler:
+  # The number of libp2p hosts to run.
+  num_workers: 5
+
+  # The maximum number of concurrent in-flight requests.
+  concurrent_requests: 1000
+
+  # Path to the (compressed) preimage file.
+  preimage_file_path: "precomputed_hashes/preimages.csv.zst"
+
+  # The bootstrap peers to connect to.
+  # See https://raw.githubusercontent.com/paritytech/polkadot/refs/heads/master/node/service/chain-specs/kusama.json
+  bootstrap_peers:
+    - /dns/kusama-connect-0.parity.io/tcp/443/wss/p2p/12D3KooWBjxpFhVNM9poSsMEfdnXJaSWSZQ7otK9aV1SPA9zJp5W
+    - /dns/kusama-connect-1.parity.io/tcp/443/wss/p2p/12D3KooWAJRVca93jLm4zft4rtTLLxNV4ZrHPMBkbGy5XkXooBFt
+    - /dns/kusama-connect-2.parity.io/tcp/443/wss/p2p/12D3KooWLn22TSPR3HXMRSSmWoK4pkDtspdCVi5j86QyyUNViDeL
+    - /dns/kusama-connect-3.parity.io/tcp/443/wss/p2p/12D3KooWSwnJSP3QJ6cnFCTpcXq4EEFotVEiQuCWVprzCnWj5e4G
+    - /dns/kusama-connect-4.parity.io/tcp/443/wss/p2p/12D3KooWHi7zHUev7n1zs9kSQwh4KMPJcS8Jky2JN58cNabcXGvK
+    - /dns/kusama-connect-5.parity.io/tcp/443/wss/p2p/12D3KooWMBF6DXADrNLg6kNt1A1zmKzw478gJw79NmTQhSDxuZvR
+    - /dns/kusama-connect-6.parity.io/tcp/443/wss/p2p/12D3KooWNnG7YqYB9eEoACRuSEax8qhuPQzRn878AWKN4vUUtQXd
+    - /dns/kusama-connect-7.parity.io/tcp/443/wss/p2p/12D3KooWMmtoLnkVCGyuCpsWw4zoNtWPH4nsVLn92mutvjQknEqR
+    - /dns/p2p.0.kusama.network/tcp/30333/p2p/12D3KooWJDohybWd7FvRmyeGjgi56yy36mRWLHmgRprFdUadUt6b
+    - /dns/p2p.1.kusama.network/tcp/30333/p2p/12D3KooWC7dnTvDY97afoLrvQSBrh7dDFEkWniTwyxAsBjfpaZk6
+    - /dns/p2p.2.kusama.network/tcp/30333/p2p/12D3KooWGGK6Mj1pWF1bk4R1HjBQ4E7bgkfSJ5gmEfVRuwRZapT5
+    - /dns/p2p.3.kusama.network/tcp/30333/p2p/12D3KooWRp4qgusMiUobJ9Uw1XAwtsokqx9YwgHDv5wQXjxqETji
+    - /dns/p2p.4.kusama.network/tcp/30333/p2p/12D3KooWMVXPbqWR1erNKRSWDVPjcAQ9XtxqLTVzV4ccox9Y8KNL
+    - /dns/p2p.5.kusama.network/tcp/30333/p2p/12D3KooWBsJKGJFuv83ixryzMsUS53A8JzEVeTA8PGi4U6T2dnif
+    - /dns/kusama-bootnode-0.paritytech.net/tcp/30333/p2p/12D3KooWSueCPH3puP2PcvqPJdNaDNF3jMZjtJtDiSy35pWrbt5h
+    - /dns/kusama-bootnode-0.paritytech.net/tcp/30334/ws/p2p/12D3KooWSueCPH3puP2PcvqPJdNaDNF3jMZjtJtDiSy35pWrbt5h
+    - /dns/kusama-bootnode-1.paritytech.net/tcp/30333/p2p/12D3KooWQKqane1SqWJNWMQkbia9qiMWXkcHtAdfW5eVF8hbwEDw
+    - /dns/kusama-boot.dwellir.com/tcp/30333/ws/p2p/12D3KooWFj2ndawdYyk2spc42Y2arYwb2TUoHLHFAsKuHRzWXwoJ
+    - /dns/kusama-boot.dwellir.com/tcp/443/wss/p2p/12D3KooWFj2ndawdYyk2spc42Y2arYwb2TUoHLHFAsKuHRzWXwoJ
+    - /dns/boot.stake.plus/tcp/31333/p2p/12D3KooWLa1UyG5xLPds2GbiRBCTJjpsVwRWHWN7Dff14yiNJRpR
+    - /dns/boot.stake.plus/tcp/31334/wss/p2p/12D3KooWLa1UyG5xLPds2GbiRBCTJjpsVwRWHWN7Dff14yiNJRpR
+    - /dns/boot-node.helikon.io/tcp/7060/p2p/12D3KooWL4KPqfAsPE2aY1g5Zo1CxsDwcdJ7mmAghK7cg6M2fdbD
+    - /dns/boot-node.helikon.io/tcp/7062/wss/p2p/12D3KooWL4KPqfAsPE2aY1g5Zo1CxsDwcdJ7mmAghK7cg6M2fdbD
+    - /dns/kusama.bootnode.amforc.com/tcp/30333/p2p/12D3KooWLx6nsj6Fpd8biP1VDyuCUjazvRiGWyBam8PsqRJkbUb9
+    - /dns/kusama.bootnode.amforc.com/tcp/30334/wss/p2p/12D3KooWLx6nsj6Fpd8biP1VDyuCUjazvRiGWyBam8PsqRJkbUb9
+    - /dns/kusama-bootnode.polkadotters.com/tcp/30333/p2p/12D3KooWLxZmPqzC1itd2hCDLX2Ai8x8ArHbSrMF7wdbkg2CaEej
+    - /dns/kusama-bootnode.polkadotters.com/tcp/30334/wss/p2p/12D3KooWLxZmPqzC1itd2hCDLX2Ai8x8ArHbSrMF7wdbkg2CaEej
+    - /dns/ksm-bootnode-cr.gatotech.network/tcp/31320/p2p/12D3KooWRNZXf99BfzQDE1C8YhuBbuy7Sj18UEf7FNpD8egbURYD
+    - /dns/ksm-bootnode-cr.gatotech.network/tcp/31420/ws/p2p/12D3KooWRNZXf99BfzQDE1C8YhuBbuy7Sj18UEf7FNpD8egbURYD
+    - /dns/ksm-bootnode-cr.gatotech.network/tcp/31520/wss/p2p/12D3KooWRNZXf99BfzQDE1C8YhuBbuy7Sj18UEf7FNpD8egbURYD
+    - /dns/boot-kusama.metaspan.io/tcp/23012/p2p/12D3KooWE1tq9ZL9AAxMiUBBqy1ENmh5pwfWabnoBPMo8gFPXhn6
+    - /dns/boot-kusama.metaspan.io/tcp/23015/ws/p2p/12D3KooWE1tq9ZL9AAxMiUBBqy1ENmh5pwfWabnoBPMo8gFPXhn6
+    - /dns/boot-kusama.metaspan.io/tcp/23016/wss/p2p/12D3KooWE1tq9ZL9AAxMiUBBqy1ENmh5pwfWabnoBPMo8gFPXhn6
+    - /dns/kusama-bootnode.turboflakes.io/tcp/30305/p2p/12D3KooWR6cMhCYRhbJdqYZfzWZT6bcck3unpRLk8GBQGmHBgPwu
+    - /dns/kusama-bootnode.turboflakes.io/tcp/30405/wss/p2p/12D3KooWR6cMhCYRhbJdqYZfzWZT6bcck3unpRLk8GBQGmHBgPwu
+    - /dns/kusama-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWLswepVYVdCNduvWRTyNTaDMXEBcmvJdZ9Bhw3u2Jhad2
+    - /dns/kusama-boot-ng.dwellir.com/tcp/30334/p2p/12D3KooWLswepVYVdCNduvWRTyNTaDMXEBcmvJdZ9Bhw3u2Jhad2
+    - /dns/kusama-bootnode.radiumblock.com/tcp/30335/wss/p2p/12D3KooWGzKffWe7JSXeKMQeSQC5xfBafZtgBDCuBVxmwe2TJRuc
+    - /dns/kusama-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWGzKffWe7JSXeKMQeSQC5xfBafZtgBDCuBVxmwe2TJRuc
+    - /dns/ksm-bootnode.stakeworld.io/tcp/30300/p2p/12D3KooWFRin7WWVS6RgUsSpkfUHSv4tfGKnr2zJPmf1pbMv118H
+    - /dns/ksm-bootnode.stakeworld.io/tcp/30301/ws/p2p/12D3KooWFRin7WWVS6RgUsSpkfUHSv4tfGKnr2zJPmf1pbMv118H
+    - /dns/ksm-bootnode.stakeworld.io/tcp/30302/wss/p2p/12D3KooWFRin7WWVS6RgUsSpkfUHSv4tfGKnr2zJPmf1pbMv118H
+
+
+  # Configuration of the libp2p hosts.
+  worker_config:
+    # The user agent to announce as.
+    user_agent: "libp2p_crawler (https://github.com/trudi-group/ipfs-crawler)"
+
+    # The timeout to establish a connection to a peer.
+    connect_timeout: 180s
+
+    # The number of times a connection attempt will be made.
+    connection_attempts: 3
+
+  # Configuration for the crawler "plugin"
+  crawler_config:
+    # The timeout for non-connection interactions.
+    # These are steps of the crawling process, such as establishing a stream and
+    # requesting a set of known peers. As such the total timeout to get all
+    # neighbors of a peer is a multiple of this.
+    interaction_timeout: 5s
+
+    # The number of times each interaction is attempted.
+    interaction_attempts: 10
+
+    # The protocols to use for crawling.
+    # Polkadot uses the hash of the genesis block as part of the protocol ID.
+    # Kinda cool, actually. But if they ever restart or fork we have to update.
+    # We add a few fork IDs just in case.
+    protocol_strings:
+      - /ksmcc3/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/0/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/1/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/2/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/3/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/4/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/5/kad
+      - /b0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe/6/kad
+
+  # Configuration for plugins.
+  # Plugins are executed once a peer has been crawled completely, in the order
+  # given here.
+  plugins:
