@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/connmgr"
-	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -42,7 +43,7 @@ func (c WorkerConfig) check() error {
 
 // A Libp2pWorker implements the worker interface for a libp2p host.
 type Libp2pWorker struct {
-	host        host.Host
+	host        *basichost.BasicHost
 	config      WorkerConfig
 	crawler     *crawler
 	plugins     []Plugin
@@ -65,21 +66,27 @@ func NewLibp2pWorker(config WorkerConfig, pluginConfigs []PluginConfig, preimage
 		closed: make(chan struct{}),
 	}
 
-	rm := network.NullResourceManager{}
-	cm := connmgr.NullConnMgr{}
+	// Init the host, i.e., generate priv key and all that stuff
+	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
+
+	// The resource manager expects a limiter, se we create one from our limits.
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+
+	// Initialize the resource manager
+	rm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create resource manager: %w", err)
+	}
 
 	// Create libp2p host
-	opts := []libp2p.Option{
-		libp2p.ResourceManager(&rm), libp2p.ConnectionManager(cm), libp2p.UserAgent(config.UserAgent), libp2p.DisableMetrics(),
-		libp2p.SwarmOpts(swarm.WithReadOnlyBlackHoleDetector()),
-		libp2p.UDPBlackHoleSuccessCounter(nil),
-		libp2p.IPv6BlackHoleSuccessCounter(nil),
-	}
+	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.ResourceManager(rm), libp2p.UserAgent(config.UserAgent)}
 	h, err := libp2p.New(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create libp2p host: %w", err)
 	}
-	w.host = h
+	// We have determined that we have a BasicHost through experimentation.
+	// If this ever fails, it'll panic, which is... fine, I guess.
+	w.host = h.(*basichost.BasicHost)
 
 	// Create crawler "plugin"
 	c, err := newCrawler(h, crawlerConfig, preimageHandler)
@@ -101,19 +108,12 @@ func NewLibp2pWorker(config WorkerConfig, pluginConfigs []PluginConfig, preimage
 // connect attempts to open a connection to the given peer and
 // waits for the Identify protocol to finish.
 func (w *Libp2pWorker) connect(p peer.AddrInfo) (network.Conn, error) {
+	// This is mostly taken from (*BasicHost).Connect()
+	// First, add the new addresses to the peerstore
+	w.host.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.TempAddrTTL)
+
+	// Then dial
 	ctx, cancel := context.WithTimeout(context.Background(), w.config.ConnectTimeout)
-	defer cancel()
-
-	// This internally calls w.host.Network().DialPeer(...) and then waits
-	// for the identity protocol to finish.
-	err := w.host.Connect(ctx, p)
-	if err != nil {
-		return nil, fmt.Errorf("dial: %w", err)
-	}
-
-	// What we really want is the connection itself, though.
-	// So we just call it again...
-	ctx, cancel = context.WithTimeout(context.Background(), w.config.ConnectTimeout)
 	defer cancel()
 	c, err := w.host.Network().DialPeer(ctx, p.ID)
 	if err != nil {
@@ -121,6 +121,17 @@ func (w *Libp2pWorker) connect(p peer.AddrInfo) (network.Conn, error) {
 	}
 
 	return c, nil
+}
+
+func (w *Libp2pWorker) identifyConn(c network.Conn) {
+	ctx, cancel := context.WithTimeout(context.Background(), w.config.ConnectTimeout)
+	defer cancel()
+
+	// Wait for identity protocol to finish
+	select {
+	case <-w.host.IDService().IdentifyWait(c):
+	case <-ctx.Done():
+	}
 }
 
 // CrawlPeer implements worker.
@@ -170,10 +181,12 @@ func (w *Libp2pWorker) crawlPeer(remote peer.AddrInfo) (*rawNodeInformation, err
 		}
 	}
 
+	// Get identity information
+	// This currently uses the same timeout as establishing a connection.
+	// It's not guaranteed that this actually works -- we just time out after a while...
 	// TODO figure out a way to actually _force_ identify a connection, potentially with retries.
 	// We could call (*idService).identifyConn(c network.Conn), which we need to get via reflection or so first...
-	// This seems fine for now. If the connection works, it's identified
-	// (confirmed from testing).
+	w.identifyConn(conn)
 
 	var infos peerMetadata
 	agentVersion, err := w.host.Peerstore().Get(remote.ID, "AgentVersion")
