@@ -1,9 +1,9 @@
 module ipfs-crawler
 
-go 1.20
+go 1.21
 
 require (
-	github.com/DataDog/zstd v1.5.6
+	github.com/DataDog/zstd v1.5.7
 	github.com/ipfs/go-bitswap v0.11.0
 	github.com/ipfs/go-cid v0.4.1
 	github.com/libp2p/go-libp2p v0.26.3
