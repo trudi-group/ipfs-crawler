@@ -1,6 +1,6 @@
 module ipfs-crawler
 
-go 1.20
+go 1.21
 
 require (
 	github.com/DataDog/zstd v1.5.6
@@ -13,7 +13,7 @@ require (
 	github.com/minio/sha256-simd v1.0.1
 	github.com/multiformats/go-multiaddr v0.12.3
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.10
 	gopkg.in/yaml.v3 v3.0.1
 )
 
